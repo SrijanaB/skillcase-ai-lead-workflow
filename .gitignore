@@ -6,3 +6,4 @@ venv/
 exports/
 *.csv
 !data/*.csv
+.freebuff/
