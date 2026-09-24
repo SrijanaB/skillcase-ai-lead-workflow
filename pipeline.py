@@ -5,21 +5,63 @@ Raw messy leads -> clean/dedupe (rules) -> classify (AI) -> enrich (AI)
 -> prioritize (rules) -> outreach (AI) -> QC (rules).
 
 Each stage is a standalone function so it can be tested and explained
-independently. The two AI-touching functions (classify_leads,
-enrich_leads, generate_outreach) are the only ones that call the
-Gemini API; everything else is deterministic Python.
+independently. The AI-touching functions (classify_leads, enrich_leads,
+generate_outreach) are the only ones that call the Gemini API; everything
+else is deterministic Python.
+
+Gemini integration notes:
+- All AI calls share one helper that uses JSON response mode, a strict
+  timeout, exponential backoff with jitter on 429/500/502/503/504, and a
+  fallback from `response_json_schema` to plain JSON mode on 400s.
+- Automatic function calling (AFC) is explicitly disabled; this pipeline
+  never uses function calling, and disabling it keeps the SDK on the
+  plain generate path (and silences the SDK's AFC warning).
+- Each stage sends its leads in bounded-size batches (with modest
+  concurrency) instead of one giant request, which avoids max-token
+  truncation and keeps individual calls fast.
+- Every stage validates that the model echoed every lead id back; a
+  missing id is backfilled with a conservative placeholder record and
+  flagged for human review by rule_based_qc, so no lead is ever
+  silently dropped.
 """
 import json
 import os
+import random
 import re
 import time
-from typing import Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Callable, Iterator
 
 from google import genai
 from google.genai import errors as genai_errors
 
-MODEL = "gemini-3.5-flash-lite"
+try:  # httpx ships with google-genai; transport errors are retryable.
+    import httpx
+    _TRANSIENT_NETWORK_ERRORS: tuple[type[BaseException], ...] = (httpx.TransportError,)
+except ImportError:  # pragma: no cover
+    _TRANSIENT_NETWORK_ERRORS = ()
+
+MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
 REQUIRED_FIELDS = ["phone", "email", "city", "education", "experience_years", "goal", "german_level"]
+
+# --- Gemini request tuning -------------------------------------------------
+HTTP_TIMEOUT_MS = int(os.environ.get("GEMINI_TIMEOUT_MS", "120000"))
+MAX_ATTEMPTS = 4                      # 1 try + up to 3 retries
+_RETRY_BASE_DELAY = float(os.environ.get("GEMINI_RETRY_BASE_DELAY", "1.0"))
+_RETRY_MAX_DELAY = 8.0                # seconds, before jitter
+_RETRYABLE_CODES = {429, 500, 502, 503, 504}
+
+# Batch sizes: small enough that each response cannot plausibly hit the
+# max-token ceiling, large enough that 30 leads = 2-4 calls per stage.
+CLASSIFY_BATCH = 15
+ENRICH_BATCH = 8
+OUTREACH_BATCH = 6
+MAX_CONCURRENT_REQUESTS = 2           # stay comfortably under free-tier RPM
+
+# Per-batch output budgets, sized to the content (not inflated).
+CLASSIFY_MAX_TOKENS = 2000
+ENRICH_MAX_TOKENS = 6000
+OUTREACH_MAX_TOKENS = 2000
 
 _client = None
 
@@ -45,11 +87,22 @@ ENRICH_SCHEMA = {
             "lead_id": {"type": "string"},
             "profile": {"type": "string"},
             "intent": {"type": "string"},
+            "intent_level": {
+                "type": "string",
+                "enum": ["high", "medium", "low", "unclear"],
+            },
             "need": {"type": "string"},
             "objection": {"type": "string"},
             "objection_category": {
                 "type": "string",
-                "enum": ["price", "timeline", "confidence", "eligibility", "qualification", "none"],
+                "enum": [
+                    "price",
+                    "timeline",
+                    "confidence",
+                    "eligibility",
+                    "qualification",
+                    "none",
+                ],
             },
             "objection_severity": {
                 "type": "string",
@@ -59,14 +112,28 @@ ENRICH_SCHEMA = {
                 "type": "string",
                 "enum": ["high", "medium", "low"],
             },
+            "engagement_level": {
+                "type": "string",
+                "enum": ["high", "medium", "low"],
+            },
             "missing_info": {"type": "string"},
             "opportunity": {"type": "string"},
             "next_action": {"type": "string"},
         },
         "required": [
-            "lead_id", "profile", "intent", "need", "objection",
-            "objection_category", "objection_severity", "urgency",
-            "missing_info", "opportunity", "next_action",
+            "lead_id",
+            "profile",
+            "intent",
+            "intent_level",
+            "need",
+            "objection",
+            "objection_category",
+            "objection_severity",
+            "urgency",
+            "engagement_level",
+            "missing_info",
+            "opportunity",
+            "next_action",
         ],
     },
 }
@@ -90,7 +157,13 @@ def get_client() -> genai.Client:
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
             raise RuntimeError("GEMINI_API_KEY is not set. Add it to your environment or .env file.")
-        _client = genai.Client(api_key=api_key)
+        try:
+            _client = genai.Client(
+                api_key=api_key,
+                http_options={"timeout": HTTP_TIMEOUT_MS},
+            )
+        except (TypeError, ValueError):  # older SDK without http_options dict support
+            _client = genai.Client(api_key=api_key)
     return _client
 
 
@@ -109,7 +182,7 @@ def _safe_api_error_message(exc: BaseException) -> str:
 def parse_experience_years(raw: str | None) -> float | None:
     if not raw:
         return None
-    t = raw.lower().strip()
+    t = str(raw).lower().strip()
     m = re.search(r"([\d.]+)\s*(year|yr)", t)
     if m:
         return float(m.group(1))
@@ -125,7 +198,7 @@ def parse_experience_years(raw: str | None) -> float | None:
 def normalize_education(raw: str | None) -> str | None:
     if not raw:
         return None
-    key = re.sub(r"\s+", " ", raw.lower().replace(".", "")).strip()
+    key = re.sub(r"\s+", " ", str(raw).lower().replace(".", "")).strip()
     mapping = {
         "bsc nursing": "BSc Nursing",
         "gnm": "GNM",
@@ -133,17 +206,17 @@ def normalize_education(raw: str | None) -> str | None:
         "bba": "BBA",
         "engineer": "Engineer",
     }
-    return mapping.get(key, raw.strip())
+    return mapping.get(key, str(raw).strip())
 
 
 def title_case(raw: str) -> str:
-    return " ".join(w.capitalize() for w in raw.strip().lower().split())
+    return " ".join(w.capitalize() for w in str(raw).strip().lower().split())
 
 
 def normalize_goal(raw: str | None) -> str | None:
     if not raw:
         return None
-    t = raw.strip().lower()
+    t = str(raw).strip().lower()
     if "canada" in t:
         return "Canada"
     if "uk" in t:
@@ -156,7 +229,7 @@ def normalize_goal(raw: str | None) -> str | None:
         return "B2 preparation"
     if "abroad" in t:
         return "Work abroad (unspecified)"
-    return title_case(raw)
+    return title_case(str(raw))
 
 
 def _completeness(lead: dict) -> int:
@@ -165,18 +238,21 @@ def _completeness(lead: dict) -> int:
 
 def clean_and_dedupe(raw_leads: list[dict]) -> dict:
     cleaned = []
-    for r in raw_leads:
+    for i, r in enumerate(raw_leads):
+        # lead_id is the record's identity; synthesize one if a messy source
+        # row omits it instead of crashing.
+        lead_id = r.get("lead_id") or f"RAW-{i + 1:03d}"
         cleaned.append({
-            "lead_id": r["lead_id"],
+            "lead_id": lead_id,
             "name": title_case(r.get("name") or ""),
-            "phone": (r.get("phone") or "").replace(" ", ""),
+            "phone": str(r.get("phone") or "").replace(" ", ""),
             "email": (r.get("email") or "").strip().lower() or None,
             "city": (r.get("city") or "").strip() or None,
             "education": normalize_education(r.get("education")),
             "experience_raw": r.get("experience"),
             "experience_years": parse_experience_years(r.get("experience")),
             "goal": normalize_goal(r.get("goal")),
-            "german_level": (r.get("german_level") or "").strip().upper() or None,
+            "german_level": str(r.get("german_level") or "").strip().upper() or None,
             "source": (r.get("source") or "").strip(),
             "last_contacted": r.get("last_contacted"),
             "conversation": r.get("conversation"),
@@ -185,7 +261,10 @@ def clean_and_dedupe(raw_leads: list[dict]) -> dict:
 
     groups: dict[str, list[dict]] = {}
     for c in cleaned:
-        groups.setdefault(c["phone"], []).append(c)
+        # Only real phone numbers group records together; leads with no
+        # phone at all are never merged with each other by accident.
+        group_key = c["phone"] if c["phone"] else f"__no_phone__{c['lead_id']}"
+        groups.setdefault(group_key, []).append(c)
 
     lead_audit = []
     duplicate_groups = []
@@ -272,10 +351,67 @@ def clean_and_dedupe(raw_leads: list[dict]) -> dict:
 # Helpers for talking to Gemini
 # ---------------------------------------------------------------------------
 
+def _batches(seq: list, size: int) -> Iterator[list]:
+    for i in range(0, len(seq), size):
+        yield list(seq[i:i + size])
+
+
+def _run_batched(
+    batches: list[list],
+    build_prompt: Callable[[list], str],
+    merge: Callable[[list, list], list],
+    max_tokens: int,
+    schema: dict | None,
+    max_workers: int = MAX_CONCURRENT_REQUESTS,
+) -> list[list]:
+    """Run one Gemini call per batch, concurrently, and merge the results.
+
+    `merge(batch, parsed_items)` must return a list of validated records
+    covering every lead in the batch (backfilling placeholders for ids the
+    model failed to echo), so no lead is ever silently dropped.
+    """
+    if not batches:
+        return []
+
+    if len(batches) == 1:
+        return [merge(batches[0], _ask_for_json_array_with_retry(
+            build_prompt(batches[0]), max_tokens=max_tokens, schema=schema))]
+
+    results: list[list | None] = [None] * len(batches)
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(batches))) as ex:
+        futures = {
+            ex.submit(
+                _ask_for_json_array_with_retry,
+                build_prompt(batch),
+                max_tokens,
+                schema,
+            ): i
+            for i, batch in enumerate(batches)
+        }
+        first_error: BaseException | None = None
+        for fut in as_completed(futures):
+            i = futures[fut]
+            try:
+                parsed = fut.result()
+            except BaseException as exc:  # noqa: BLE001 - re-raised below
+                if first_error is None:
+                    first_error = exc
+                continue
+            results[i] = merge(batches[i], parsed)
+
+    if first_error is not None:
+        raise first_error
+    return [r for r in results if r is not None]
+
+
 def _parse_json_array(text: str) -> list[dict]:
     if not text or not str(text).strip():
         raise ValueError("Empty response from model.")
     stripped = str(text).strip()
+    # Strip markdown code fences if the model added them despite instructions.
+    fence = re.match(r"^```(?:json)?\s*(.*?)\s*```$", stripped, re.S)
+    if fence:
+        stripped = fence.group(1).strip()
     start, end = stripped.find("["), stripped.rfind("]")
     if start != -1 and end != -1 and end > start:
         parsed = json.loads(stripped[start:end + 1])
@@ -295,44 +431,113 @@ def _parse_json_array(text: str) -> list[dict]:
     raise ValueError("No JSON array found in model response.")
 
 
+def _salvage_truncated_array(text: str) -> list[dict] | None:
+    """Best-effort recovery of a JSON array cut off by max_output_tokens.
+
+    Cuts at the last complete object boundary and closes the array, so
+    already-finished records are kept instead of discarding the whole
+    (slow, billed) response.
+    """
+    if not text:
+        return None
+    start = text.find("[")
+    if start == -1:
+        return None
+    candidate = text[start:]
+    last_obj = candidate.rfind("}")
+    if last_obj == -1:
+        return None
+    try:
+        repaired = json.loads(candidate[:last_obj + 1] + "]")
+    except json.JSONDecodeError:
+        return None
+    return repaired if isinstance(repaired, list) else None
+
+
+def _retry_delay_from(exc: BaseException) -> float | None:
+    """Extract a server-suggested retry delay (seconds) from a 429 body."""
+    detail = getattr(exc, "message", None) or str(exc)
+    m = re.search(
+        r"retry(?:[-_ ]?delay)?[\"':=\s]+(\d+(?:\.\d+)?)\s*(ms|s|seconds?)?",
+        detail,
+        re.I,
+    )
+    if not m:
+        return None
+    try:
+        value = float(m.group(1))
+    except ValueError:
+        return None
+    if m.group(2) and m.group(2).lower() == "ms":
+        value /= 1000.0
+    return max(0.5, min(value, 20.0))
+
+
+def _backoff_delay(attempt: int, exc: BaseException | None) -> float:
+    delay = min(_RETRY_BASE_DELAY * (2 ** attempt), _RETRY_MAX_DELAY)
+    delay += random.uniform(0, 0.4)  # jitter so concurrent batches don't sync up
+    if exc is not None:
+        suggested = _retry_delay_from(exc)
+        if suggested is not None:
+            delay = max(delay, suggested)
+    return delay
+
+
+def _generate_config_kwargs(max_tokens: int, schema: dict | None) -> list[dict]:
+    """Candidate config kwargs, tried in order.
+
+    `response_json_schema` is the modern structured-output field; if the
+    backend model rejects it with a 400 we fall back to plain JSON mode
+    rather than failing the whole run.
+    """
+    base = {
+        "response_mime_type": "application/json",
+        "max_output_tokens": max_tokens,
+        "automatic_function_calling": {"disable": True},
+    }
+    if schema is not None:
+        return [dict(base, response_json_schema=schema), dict(base)]
+    return [dict(base)]
+
+
 def _ask_for_json_array(
     prompt: str, max_tokens: int = 4000, schema: dict | None = None
 ) -> list[dict]:
+    """Single Gemini request -> parsed JSON array of dicts."""
     client = get_client()
-    config: dict[str, Any] = {
-        "response_mime_type": "application/json",
-        "max_output_tokens": max_tokens,
-    }
-    if schema is not None:
-        config["response_json_schema"] = schema
+    kwargs_options = _generate_config_kwargs(max_tokens, schema)
 
     last_error: BaseException | None = None
-    for attempt in range(3):
+    for kwargs in kwargs_options:
         try:
             resp = client.models.generate_content(
                 model=MODEL,
                 contents=prompt,
-                config=config,
+                config=kwargs,
             )
             parsed = getattr(resp, "parsed", None)
-            if isinstance(parsed, list):
+            if isinstance(parsed, list) and parsed:
                 return parsed
             if isinstance(parsed, dict):
                 for value in parsed.values():
                     if isinstance(value, list):
                         return value
-            return _parse_json_array(getattr(resp, "text", None) or "")
+            text = getattr(resp, "text", None) or ""
+            try:
+                return _parse_json_array(text)
+            except ValueError:
+                salvage = _salvage_truncated_array(text)
+                if salvage:
+                    return salvage
+                raise
         except genai_errors.APIError as exc:
             last_error = exc
             code = getattr(exc, "code", None)
-            if code in (429, 500, 503) and attempt < 2:
-                time.sleep(2 ** attempt)
-                continue
+            if code == 400 and len(kwargs_options) > 1:
+                continue  # retry with next fallback config (e.g. no schema)
             raise RuntimeError(
                 f"Gemini API error ({code}): {_safe_api_error_message(exc)}"
             ) from None
-        except (ValueError, json.JSONDecodeError):
-            raise
         except Exception as exc:
             raise RuntimeError(
                 f"Gemini request failed: {_safe_api_error_message(exc)}"
@@ -345,239 +550,447 @@ def _ask_for_json_array(
 def _ask_for_json_array_with_retry(
     prompt: str, max_tokens: int = 4000, schema: dict | None = None
 ) -> list[dict]:
-    try:
-        return _ask_for_json_array(prompt, max_tokens, schema=schema)
-    except (ValueError, json.JSONDecodeError):
-        return _ask_for_json_array(prompt, max_tokens, schema=schema)
+    """Retry transient Gemini failures (429/5xx, timeouts, malformed JSON)
+    with exponential backoff + jitter; respect server retry hints."""
+    last_error: BaseException | None = None
+    for attempt in range(MAX_ATTEMPTS):
+        try:
+            return _ask_for_json_array(prompt, max_tokens=max_tokens, schema=schema)
+        except RuntimeError as exc:
+            last_error = exc
+            message = str(exc)
+            code_match = re.search(r"Gemini API error \((\d+)\)", message)
+            code = int(code_match.group(1)) if code_match else None
+            transient_api = code in _RETRYABLE_CODES
+            transient_network = any(
+                type(e).__name__ in message for e in _TRANSIENT_NETWORK_ERRORS
+            ) or "timed out" in message.lower()
+            malformed_output = "No JSON array found" in message or "Empty response" in message
+            if not (transient_api or transient_network or malformed_output):
+                raise
+        except (ValueError, json.JSONDecodeError) as exc:
+            last_error = exc
+        if attempt < MAX_ATTEMPTS - 1:
+            time.sleep(_backoff_delay(attempt, last_error))
+    raise last_error  # type: ignore[misc]
+
+
+def _match_records_to_leads(
+    batch: list[dict],
+    parsed: list,
+    fallback: Callable[[dict], dict],
+    get_id: Callable[[dict], Any] = lambda item: item.get("lead_id"),
+) -> list[dict]:
+    """Validate AI records against the batch's lead ids.
+
+    - keeps only records whose echoed id belongs to this batch (defends
+      against the model echoing an id from another batch or hallucinating
+      one)
+    - backfills a conservative placeholder (falling back to the batch's own
+      data, never invented facts) for any id the model failed to return,
+      so downstream stages never hit a KeyError and QC can flag the gap.
+    """
+    lead_ids = {str(get_id(l)) for l in batch}
+    by_id: dict[str, dict] = {}
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        lid = str(item.get("lead_id") or "")
+        if lid and lid in lead_ids:
+            by_id[lid] = item
+    out = []
+    for lead in batch:
+        lid = str(get_id(lead))
+        if lid in by_id:
+            out.append(by_id[lid])
+        else:
+            out.append(fallback(lead))
+    return out
+
+
+def _classify_placeholder(lead: dict) -> dict:
+    return {
+        "lead_id": lead.get("lead_id"),
+        "relevant": False,
+        "reason": "Classification missing from AI response -- treated as not relevant and routed to human review.",
+        "confidence": 0.0,
+    }
+
+
+def _enrich_placeholder(lead: dict) -> dict:
+    return {
+        "lead_id": lead.get("lead_id"),
+        "profile": "Not stated",
+        "intent": "Not stated",
+        "intent_level": "unclear",
+        "need": "Not stated",
+        "objection": "Not stated",
+        "objection_category": "none",
+        "objection_severity": "none",
+        "urgency": "low",
+        "engagement_level": "low",
+        "missing_info": "Enrichment missing from AI response",
+        "opportunity": "Not stated",
+        "next_action": "Review this lead manually -- enrichment was not returned.",
+    }
+
+
+def _outreach_placeholder(lead: dict) -> dict:
+    return {
+        "lead_id": lead.get("lead_id"),
+        "outreach": "",
+    }
 
 
 # ---------------------------------------------------------------------------
 # Stage 2: classify (AI)
 # ---------------------------------------------------------------------------
 
-def classify_leads(leads: list[dict]) -> dict[str, dict]:
-    payload = [{
-        "lead_id": l["lead_id"], "education": l["education"], "experience_years": l["experience_years"],
-        "goal": l["goal"], "german_level": l["german_level"], "conversation": l["conversation"],
-        "missing_fields": l["missing_fields"],
-    } for l in leads]
-
-    prompt = f"""You are triaging inbound leads for Skillcase, a company that prepares nurses and allied healthcare workers in India to learn German and get placed as nurses in Germany.
+_CLASSIFICATION_PROMPT = """You are triaging inbound leads for Skillcase, a company that prepares nurses and allied healthcare workers in India to learn German and get placed as nurses in Germany.
 
 Relevance criteria:
 - RELEVANT: the person has (or is credibly pursuing) a nursing/allied-healthcare background AND is interested in working or preparing for work in Germany specifically, at any stage (even early exploration, even if only asking preparatory questions).
 - NOT RELEVANT: the person is targeting a different country only (e.g. Canada, UK), is in an unrelated profession with no stated intent to pivot into healthcare, or is asking on behalf of a background that does not fit.
 - Missing fields lower confidence but do not automatically make a lead not relevant.
 
-For each lead below, return a relevance judgment. Respond with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
+For each lead below, return a relevance judgment. Respond with ONLY a JSON array, no prose, no markdown fences, one object per lead, in this exact shape:
 [{{"lead_id":"L001","relevant":true,"reason":"short reason under 15 words","confidence":0.0}}]
 
 Leads:
-{json.dumps(payload)}"""
+{payload}"""
 
-    results = _ask_for_json_array_with_retry(prompt, schema=CLASSIFY_SCHEMA)
-    return {r["lead_id"]: r for r in results}
+
+def classify_leads(leads: list[dict]) -> dict[str, dict]:
+    batches = list(_batches(leads, CLASSIFY_BATCH))
+
+    def build_prompt(batch: list[dict]) -> str:
+        payload = [{
+            "lead_id": l.get("lead_id"),
+            "education": l.get("education"),
+            "experience_years": l.get("experience_years"),
+            "german_level": l.get("german_level"),
+            "profession": l.get("profession"),
+            "source": l.get("source"),
+            "conversation": l.get("conversation"),
+        } for l in batch]
+        return _CLASSIFICATION_PROMPT.format(payload=json.dumps(payload, ensure_ascii=False))
+
+    def merge(batch: list[dict], parsed: list) -> list[dict]:
+        return _match_records_to_leads(batch, parsed, _classify_placeholder)
+
+    results = _run_batched(
+        batches, build_prompt, merge,
+        max_tokens=CLASSIFY_MAX_TOKENS, schema=CLASSIFY_SCHEMA,
+    )
+    out: dict[str, dict] = {}
+    for batch_results in results:
+        for r in batch_results:
+            lid = r.get("lead_id")
+            if lid:
+                out[lid] = r
+    return out
 
 
 # ---------------------------------------------------------------------------
 # Stage 3: enrich (AI)
 # ---------------------------------------------------------------------------
 
-def enrich_leads(leads: list[dict]) -> dict[str, dict]:
-    payload = [{
-        "lead_id": l["lead_id"], "name": l["name"], "city": l["city"], "education": l["education"],
-        "experience_years": l["experience_years"], "goal": l["goal"], "german_level": l["german_level"],
-        "source": l["source"], "conversation": l["conversation"], "missing_fields": l["missing_fields"],
-    } for l in leads]
+_ENRICH_PROMPT = """For each Skillcase lead below, extract structured sales context from the conversation.
 
-    prompt = f"""For each Skillcase lead below (a nursing-to-Germany migration prep service), extract structured sales context from the conversation. Be concise -- each field should be one short sentence or phrase. If information genuinely isn't present, say "Not stated" rather than guessing.
+Be concise and evidence-based. Use ONLY information supported by the lead's
+original data and conversation. If information genuinely isn't present, say
+"Not stated" rather than guessing.
 
 Fields per lead:
-- profile: one line on their background (education, experience, location)
-- intent: what they appear to be trying to achieve
-- need: what they likely need help with next
-- objection: their stated hesitation or concern, in their words if possible
-- objection_category: one of price | timeline | confidence | eligibility | qualification | none
-- objection_severity: one of mild | moderate | strong | none
-    * mild: passing concern or light question
-    * moderate: real concern or hesitation but not explicitly blocking
-    * strong: explicitly stated as a blocker or barrier
-    * none: no objection stated
-- urgency: one of high | medium | low (judge urgency from the holistic meaning and readiness of the full conversation, NOT keyword matching)
-    * high: concrete readiness, such as requesting a call, giving a clear timeline, or stating they are ready to start
-    * medium: interested but no immediate action planned
-    * low: early-stage exploration or passive inquiry
-- missing_info: the single most important piece of info a salesperson should still collect
-- opportunity: what Skillcase could concretely help them with
-- next_action: the one recommended next step for the salesperson
 
-Respond with ONLY a JSON array, no prose, no markdown fences:
-[{{"lead_id":"L001","profile":"...","intent":"...","need":"...","objection":"...","objection_category":"...","objection_severity":"...","urgency":"...","missing_info":"...","opportunity":"...","next_action":"..."}}]
+- profile: one short line describing their background, education,
+  experience and location.
+
+- intent: a short description of what the person appears to be trying to
+  achieve.
+
+- intent_level: classify their level of intent as high | medium | low | unclear.
+    * high: explicitly wants to pursue the opportunity, asks to start,
+      requests a call/next step, or shows clear decision intent.
+    * medium: actively interested and gathering information but has not
+      indicated readiness to act.
+    * low: early exploration, curiosity, or general information-seeking.
+    * unclear: there is not enough evidence to determine their intent.
+
+- need: what they appear to need help with next.
+
+- objection: their stated hesitation, concern, or barrier. If none is stated,
+  return "Not stated".
+
+- objection_category: one of price | timeline | confidence | eligibility |
+  qualification | none.
+
+- objection_severity: one of mild | moderate | strong | none.
+    * mild: passing concern or light question.
+    * moderate: real concern or hesitation but not explicitly blocking.
+    * strong: explicitly stated as a blocker or barrier.
+    * none: no objection stated.
+
+- urgency: classify urgency as high | medium | low based on the holistic
+  meaning of the conversation, NOT keyword matching.
+    * high: concrete readiness, such as requesting a call, giving a clear
+      timeline, or stating they are ready to start.
+    * medium: interested but no immediate action planned.
+    * low: early-stage exploration or passive inquiry.
+
+- engagement_level: classify the lead's level of meaningful engagement as
+  high | medium | low.
+    * high: asks specific questions, provides meaningful personal context,
+      requests a call/next step, or actively discusses their situation.
+    * medium: provides some context or asks a relevant question but shows
+      limited interaction.
+    * low: very short, vague, passive, or purely exploratory interaction.
+
+- missing_info: the single most important piece of information a salesperson
+  should still collect. If nothing important is missing, say "None".
+
+- opportunity: what Skillcase could concretely help this person with, based
+  only on what is supported by the conversation.
+
+- next_action: the one recommended next step for the salesperson.
+
+IMPORTANT:
+- Do not infer intent from education, experience, German level, or profession
+  alone.
+- Do not assume someone is highly interested simply because they appear to
+  be a good fit.
+- Do not assume urgency without evidence from the conversation.
+- Do not assume high engagement from a single vague message.
+- Keep intent, urgency, fit-related information, and engagement conceptually
+  separate.
+- The original conversation is the primary source of truth.
+
+Respond with ONLY a JSON array, no prose, no markdown fences, one object per
+lead, containing every field above for every lead in the input.
 
 Leads:
-{json.dumps(payload)}"""
+{payload}
+"""
 
-    results = _ask_for_json_array_with_retry(prompt, max_tokens=6000, schema=ENRICH_SCHEMA)
-    return {r["lead_id"]: r for r in results}
+
+def enrich_leads(leads: list[dict]) -> dict[str, dict]:
+    """Enrich the given leads (callers pass relevant leads only)."""
+    if not leads:
+        return {}
+    batches = list(_batches(leads, ENRICH_BATCH))
+
+    def build_prompt(batch: list[dict]) -> str:
+        payload = [{
+            "lead_id": l.get("lead_id"), "name": l.get("name"), "city": l.get("city"),
+            "education": l.get("education"),
+            "experience_years": l.get("experience_years"), "goal": l.get("goal"),
+            "german_level": l.get("german_level"),
+            "source": l.get("source"), "conversation": l.get("conversation"),
+            "missing_fields": l.get("missing_fields", []),
+        } for l in batch]
+        return _ENRICH_PROMPT.format(payload=json.dumps(payload, ensure_ascii=False))
+
+    def merge(batch: list[dict], parsed: list) -> list[dict]:
+        return _match_records_to_leads(batch, parsed, _enrich_placeholder)
+
+    results = _run_batched(
+        batches, build_prompt, merge,
+        max_tokens=ENRICH_MAX_TOKENS, schema=ENRICH_SCHEMA,
+    )
+    out: dict[str, dict] = {}
+    for batch_results in results:
+        for r in batch_results:
+            lid = r.get("lead_id")
+            if lid:
+                out[lid] = r
+    return out
 
 
 # ---------------------------------------------------------------------------
 # Stage 4: prioritize (pure rules, no AI)
 # ---------------------------------------------------------------------------
 
-GERMAN_LEVEL_SCORE = {"B2": 3, "B1": 2, "A2": 1, "A1": 0}
-URGENCY_BONUS = {
-    "high": 2,
-    "medium": 1,
-    "low": 0,
-}
-OBJECTION_BASE = {
-    "price": 2.0,
-    "qualification": 1.5,
-    "eligibility": 1.5,
-    "confidence": 1.0,
-    "timeline": 0.5,
-    "none": 0.0,
-}
-SEVERITY_MULTIPLIER = {
-    "strong": 1.5,
-    "moderate": 1.0,
-    "mild": 0.5,
-    "none": 0.0,
+INTENT_SCORE = {
+    "high": 100,
+    "medium": 60,
+    "low": 25,
+    "unclear": 0,
 }
 
+URGENCY_SCORE = {
+    "high": 100,
+    "medium": 60,
+    "low": 20,
+}
 
-def _build_priority_reason(
-    lead: dict,
-    band: str,
-    german_level: str | None,
-    exp_years: float,
-    source: str | None,
-    urgency: str,
-    raw_cat: str,
-    sev: str,
-    obj_penalty: float,
-) -> str:
-    factors = []
+ENGAGEMENT_SCORE = {
+    "high": 100,
+    "medium": 60,
+    "low": 20,
+}
 
-    if german_level == "B2":
-        factors.append("strong German proficiency")
-    elif german_level == "B1":
-        factors.append("intermediate German proficiency")
-    elif german_level == "A2":
-        factors.append("elementary German proficiency")
-    elif german_level == "A1":
-        factors.append("beginner German proficiency")
+GERMAN_SCORE = {
+    "A1": 20,
+    "A2": 40,
+    "B1": 60,
+    "B2": 80,
+    "C1": 100,
+    "C2": 100,
+}
 
-    if exp_years >= 1:
-        factors.append("relevant experience")
-    elif exp_years > 0:
-        factors.append("clinical experience")
 
-    if source == "Referral":
-        factors.append("referral bonus")
-    elif source == "WhatsApp":
-        factors.append("direct WhatsApp channel")
+def compute_fit_score(lead: dict) -> float:
+    """
+    Calculate fit from deterministic lead attributes.
 
-    if urgency == "high":
-        factors.append("high urgency")
-    elif urgency == "medium":
-        factors.append("moderate urgency")
+    Fit is currently based on:
+    - German proficiency: 50%
+    - Relevant experience: 50%
 
-    objection_note = ""
-    if raw_cat != "none" and obj_penalty > 0:
-        objection_note = f" A {sev} {raw_cat} objection reduced the score."
+    Missing information is treated as unknown rather than automatically
+    penalizing the lead.
+    """
 
-    if band == "High":
-        if factors:
-            if len(factors) == 1:
-                lead_clause = factors[0]
-            elif len(factors) == 2:
-                lead_clause = f"{factors[0]} and {factors[1]}"
-            else:
-                lead_clause = f"{', '.join(factors[:-1])}, and {factors[-1]}"
-            return f"High priority because of {lead_clause}.{objection_note}".strip()
-        return f"High priority based on overall qualifications.{objection_note}".strip()
-    elif band == "Medium":
-        if factors:
-            if len(factors) == 1:
-                lead_clause = factors[0]
-            elif len(factors) == 2:
-                lead_clause = f"{factors[0]} and {factors[1]}"
-            else:
-                lead_clause = f"{', '.join(factors[:-1])}, and {factors[-1]}"
-            return f"Medium priority with {lead_clause}.{objection_note}".strip()
-        return f"Medium priority based on balanced qualifications.{objection_note}".strip()
-    else:  # Low
-        reasons = []
-        if not german_level or german_level in ("A1", "A2"):
-            reasons.append(f"lower German proficiency ({german_level or 'none'})")
-        if exp_years < 1:
-            reasons.append("limited clinical experience")
-        if urgency == "low":
-            reasons.append("early-stage exploration")
-        if not reasons:
-            reasons = ["early-stage profile"]
+    german_level = str(lead.get("german_level") or "").upper()
+    german_score = GERMAN_SCORE.get(german_level, 0)
 
-        if len(reasons) == 1:
-            clause = reasons[0]
-        elif len(reasons) == 2:
-            clause = f"{reasons[0]} and {reasons[1]}"
-        else:
-            clause = f"{', '.join(reasons[:-1])}, and {reasons[-1]}"
-        return f"Low priority due to {clause}.{objection_note}".strip()
+    experience = lead.get("experience_years")
+
+    try:
+        experience = float(experience) if experience is not None else 0
+    except (TypeError, ValueError):
+        experience = 0
+
+    if experience >= 5:
+        experience_score = 100
+    elif experience >= 3:
+        experience_score = 80
+    elif experience >= 2:
+        experience_score = 60
+    elif experience >= 1:
+        experience_score = 40
+    elif experience > 0:
+        experience_score = 20
+    else:
+        experience_score = 0
+
+    return round((german_score + experience_score) / 2, 1)
 
 
 def compute_priority(lead: dict, classification: dict, enrichment: dict) -> dict:
+    """
+    Calculate transparent sales-priority score.
+
+    Priority:
+        Intent      = 40%
+        Urgency     = 25%
+        Fit         = 20%
+        Engagement  = 15%
+
+    Final score is 0-100.
+
+    This is a sales follow-up heuristic, not a conversion prediction.
+    """
+
     if not classification.get("relevant"):
         return {
             "score": None,
             "band": "N/A",
-            "priority_reason": "Not scored because lead is not relevant to Skillcase's healthcare program.",
+            "priority_reason": (
+                "Not scored because the lead is not relevant "
+                "to Skillcase's healthcare program."
+            ),
         }
 
-    gl = GERMAN_LEVEL_SCORE.get(lead.get("german_level"), 0)
-    german_points = gl * 2
-    exp_years = min(lead.get("experience_years") or 0, 5)
-    source_bonus = 1 if lead.get("source") == "Referral" else (0.5 if lead.get("source") == "WhatsApp" else 0)
+    # ---------------------------------------------------------
+    # 1. INTENT — 40%
+    # ---------------------------------------------------------
 
-    # Urgency bonus from AI-generated field (with safe validation and sensible default)
-    raw_urgency = (enrichment.get("urgency") or "").lower().strip()
-    urgency = raw_urgency if raw_urgency in URGENCY_BONUS else "low"
-    urgency_bonus = URGENCY_BONUS[urgency]
+    intent = str(
+        enrichment.get("intent_level") or "unclear"
+    ).lower().strip()
 
-    # Category-specific objection penalty with severity multiplier
-    raw_cat = (enrichment.get("objection_category") or "").lower().strip()
-    if raw_cat and raw_cat != "none":
-        obj_base = OBJECTION_BASE.get(raw_cat, 1.0)
-        raw_sev = (enrichment.get("objection_severity") or "").lower().strip()
-        sev = raw_sev if raw_sev in SEVERITY_MULTIPLIER else "moderate"
-        multiplier = SEVERITY_MULTIPLIER[sev]
-        obj_penalty = round(obj_base * multiplier, 2)
+    if intent not in INTENT_SCORE:
+        intent = "unclear"
+
+    intent_score = INTENT_SCORE[intent]
+
+    # ---------------------------------------------------------
+    # 2. URGENCY — 25%
+    # ---------------------------------------------------------
+
+    urgency = str(
+        enrichment.get("urgency") or "low"
+    ).lower().strip()
+
+    if urgency not in URGENCY_SCORE:
+        urgency = "low"
+
+    urgency_score = URGENCY_SCORE[urgency]
+
+    # ---------------------------------------------------------
+    # 3. FIT — 20%
+    # ---------------------------------------------------------
+
+    fit_score = compute_fit_score(lead)
+
+    # ---------------------------------------------------------
+    # 4. ENGAGEMENT — 15%
+    # ---------------------------------------------------------
+
+    engagement = str(
+        enrichment.get("engagement_level") or "low"
+    ).lower().strip()
+
+    if engagement not in ENGAGEMENT_SCORE:
+        engagement = "low"
+
+    engagement_score = ENGAGEMENT_SCORE[engagement]
+
+    # ---------------------------------------------------------
+    # FINAL SCORE
+    # ---------------------------------------------------------
+
+    score = round(
+        (intent_score * 0.40)
+        + (urgency_score * 0.25)
+        + (fit_score * 0.20)
+        + (engagement_score * 0.15),
+        1,
+    )
+
+    # ---------------------------------------------------------
+    # PRIORITY BAND
+    # ---------------------------------------------------------
+
+    if score >= 80:
+        band = "High"
+    elif score >= 50:
+        band = "Medium"
     else:
-        raw_cat = "none"
-        sev = "none"
-        obj_penalty = 0.0
+        band = "Low"
 
-    score = round(german_points + exp_years + source_bonus + urgency_bonus - obj_penalty, 1)
-    band = "High" if score >= 8 else ("Medium" if score >= 4 else "Low")
+    # ---------------------------------------------------------
+    # HUMAN-READABLE REASON
+    # ---------------------------------------------------------
 
-    reason = _build_priority_reason(
-        lead=lead,
-        band=band,
-        german_level=lead.get("german_level"),
-        exp_years=lead.get("experience_years") or 0,
-        source=lead.get("source"),
-        urgency=urgency,
-        raw_cat=raw_cat,
-        sev=sev,
-        obj_penalty=obj_penalty,
+    priority_reason = (
+        f"Intent: {intent.title()} ({intent_score}/100); "
+        f"Urgency: {urgency.title()} ({urgency_score}/100); "
+        f"Fit: {fit_score}/100; "
+        f"Engagement: {engagement.title()} ({engagement_score}/100)."
     )
 
     return {
         "score": score,
         "band": band,
-        "priority_reason": reason,
+        "priority_reason": priority_reason,
+        "components": {
+            "intent": intent_score,
+            "urgency": urgency_score,
+            "fit": fit_score,
+            "engagement": engagement_score,
+        },
     }
 
 
@@ -585,28 +998,149 @@ def compute_priority(lead: dict, classification: dict, enrichment: dict) -> dict
 # Stage 5: outreach (AI)
 # ---------------------------------------------------------------------------
 
-def generate_outreach(items: list[dict]) -> dict[str, str]:
-    """items: [{"lead": <cleaned lead dict>, "enrichment": <enrichment dict>}]"""
-    payload = [{
-        "lead_id": i["lead"]["lead_id"], "name": i["lead"]["name"], "city": i["lead"]["city"],
-        "source": i["lead"]["source"], "profile": i["enrichment"].get("profile"),
-        "intent": i["enrichment"].get("intent"), "need": i["enrichment"].get("need"),
-        "objection": i["enrichment"].get("objection"), "opportunity": i["enrichment"].get("opportunity"),
-    } for i in items]
+_OUTREACH_PROMPT = """
+You are writing a real sales follow-up for Skillcase.
 
-    if not payload:
-        return {}
+Skillcase helps nurses and allied healthcare professionals in India prepare
+for German language requirements and the process of pursuing healthcare
+opportunities in Germany.
 
-    prompt = f"""Write a short personalized outreach message (under 70 words) for each Skillcase lead below, to be sent over the channel they came from. Reference their specific situation, intent and objection -- never a generic template. Do not make guarantees about job placement or outcomes; Skillcase supports the process but cannot promise a job. Warm, direct, no corporate filler.
+Your job is NOT to invent a sales pitch.
 
-Respond with ONLY a JSON array, no prose, no markdown fences:
-[{{"lead_id":"L001","outreach":"message text"}}]
+Your job is to respond naturally to what the lead actually said.
+
+SOURCE OF TRUTH
+---------------
+The lead's original conversation is the primary source of truth.
+
+The structured enrichment is only supporting context. It may contain
+interpretations, so NEVER treat an enrichment field as a fact if the
+original conversation does not support it.
+
+STRICT GROUNDING RULES
+----------------------
+1. Read the original conversation carefully before writing.
+2. Identify the specific thing the person is asking about, considering,
+   worried about, or trying to achieve.
+3. Respond to THAT specific situation.
+4. If they raised a concern, address that concern directly.
+5. If they asked a question, respond to that question rather than changing
+   the subject into a generic sales pitch.
+6. Do not invent facts about the person's career, qualifications,
+   experience, timeline, budget, German level, family situation, or goals.
+7. Do not invent Skillcase features, prices, guarantees, outcomes,
+   eligibility decisions, placement statistics, or timelines.
+8. Do not say that Skillcase can guarantee a job, placement, visa,
+   salary, or any other outcome.
+9. Do not mention information that exists only in the enrichment if it is
+   not supported by the original lead data.
+10. Do not use generic filler such as:
+    - "I noticed you're interested..."
+    - "We'd love to help you on your journey..."
+    - "Take the next step toward your dreams..."
+    unless the actual conversation makes that wording genuinely relevant.
+11. Do not simply repeat the lead's message back to them.
+12. Ask at most ONE useful next-step question.
+13. Keep the message conversational and appropriate for the channel.
+14. Use the person's name naturally if appropriate.
+15. Keep it under 70 words.
+16. Do not use emojis unless the lead's own tone clearly supports them.
+17. Do not use corporate language or marketing jargon.
+
+MESSAGE LOGIC
+-------------
+Use this sequence:
+
+A. What did the lead actually say?
+B. What do they appear to need right now?
+C. Is there a specific concern/objection?
+D. Respond directly to that situation.
+E. If appropriate, suggest ONE concrete next step.
+
+IMPORTANT:
+A lead who is only exploring should receive an exploratory response.
+A lead asking about cost should receive a response focused on cost.
+A lead asking about eligibility should receive a response focused on
+eligibility.
+A lead asking about a call should receive a response that moves toward
+that call.
+A lead expressing concern about unrealistic promises should receive a
+transparent response and should NOT receive another promise.
+
+Return ONLY a JSON array in this exact format, one object per lead:
+
+[
+  {{
+    "lead_id": "L001",
+    "outreach": "message text"
+  }}
+]
 
 Leads:
-{json.dumps(payload)}"""
+{payload}
+"""
 
-    results = _ask_for_json_array_with_retry(prompt, max_tokens=4000, schema=OUTREACH_SCHEMA)
-    return {r["lead_id"]: r["outreach"] for r in results}
+
+def generate_outreach(items: list[dict]) -> dict[str, str]:
+    """Generate grounded, situation-specific outreach from the original lead conversation."""
+    if not items:
+        return {}
+    batches = list(_batches(items, OUTREACH_BATCH))
+
+    def build_payload(i: dict) -> dict:
+        lead = i.get("lead") or {}
+        enrichment = i.get("enrichment") or {}
+        return {
+            "lead_id": lead.get("lead_id"),
+            "name": lead.get("name"),
+            "city": lead.get("city"),
+            "education": lead.get("education"),
+            "experience_years": lead.get("experience_years"),
+            "goal": lead.get("goal"),
+            "german_level": lead.get("german_level"),
+            "source": lead.get("source"),
+            "conversation": lead.get("conversation"),
+            "notes": lead.get("notes"),
+            # AI enrichment is supporting context, NOT the source of truth.
+            "enrichment": {
+                "profile": enrichment.get("profile"),
+                "intent": enrichment.get("intent"),
+                "need": enrichment.get("need"),
+                "objection": enrichment.get("objection"),
+                "objection_category": enrichment.get("objection_category"),
+                "objection_severity": enrichment.get("objection_severity"),
+                "urgency": enrichment.get("urgency"),
+                "missing_info": enrichment.get("missing_info"),
+                "opportunity": enrichment.get("opportunity"),
+                "next_action": enrichment.get("next_action"),
+            },
+        }
+
+    def build_prompt(batch: list[dict]) -> str:
+        payload = [build_payload(i) for i in batch]
+        return _OUTREACH_PROMPT.format(payload=json.dumps(payload, ensure_ascii=False))
+
+    def merge(batch: list[dict], parsed: list) -> list[dict]:
+        # Batch items are {"lead": ..., "enrichment": ...} wrappers, so both
+        # the id lookup and the placeholder fallback must unwrap the lead.
+        unwrap = lambda item: (item.get("lead") or {}).get("lead_id")  # noqa: E731
+        return _match_records_to_leads(
+            batch, parsed,
+            fallback=lambda item: _outreach_placeholder(item.get("lead") or {}),
+            get_id=unwrap,
+        )
+
+    results = _run_batched(
+        batches, build_prompt, merge,
+        max_tokens=OUTREACH_MAX_TOKENS, schema=OUTREACH_SCHEMA,
+    )
+    out: dict[str, str] = {}
+    for batch_results in results:
+        for r in batch_results:
+            lid = r.get("lead_id")
+            if lid:
+                out[lid] = r.get("outreach") or ""
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -614,6 +1148,20 @@ Leads:
 # ---------------------------------------------------------------------------
 
 CONTRADICTION_TERMS = ["wrong market", "different profession", "not a healthcare", "not relevant", "unrelated profession"]
+
+GENERIC_OUTREACH_PHRASES = re.compile(
+    r"we'?d love to help|take the next step toward|notice you'?re interested",
+    re.I,
+)
+
+UNSUPPORTED_CLAIMS = re.compile(
+    r"guaranteed?\s+(?:a\s+)?(?:job|placement|visa|salary|admission|outcome)"
+    r"|(?:job|placement|visa|salary)\s+(?:is\s+)?guaranteed"
+    r"|\bplacement rate\b"
+    r"|\b\d+\s?%\s?(?:success|placement|pass)\b"
+    r"|\bsalary of\s",
+    re.I,
+)
 
 
 def rule_based_qc(
@@ -627,60 +1175,168 @@ def rule_based_qc(
     relevant = classification.get("relevant")
     reason = (classification.get("reason") or "").lower()
 
+    # Classification must exist and be a real boolean; anything else routes
+    # the lead to human review rather than silently counting as relevant
+    # or not relevant.
+    if not isinstance(relevant, bool):
+        flags.append(
+            "Classification missing or malformed -- route to human review."
+        )
+
+    # Enrichment must exist for relevant leads; an empty enrichment would
+    # otherwise masquerade as a low-priority lead instead of a data gap.
+    if relevant and not enrichment:
+        flags.append(
+            "No enrichment returned for a relevant lead -- route to human review."
+        )
+
     # Contradiction detection
     if relevant and any(t in reason for t in CONTRADICTION_TERMS):
-        flags.append("Classified relevant but reason text reads disqualifying -- verify manually.")
+        flags.append(
+            "Classified relevant but reason text reads disqualifying -- verify manually."
+        )
 
     # Low classification confidence check
     confidence = classification.get("confidence")
-    if confidence is not None and isinstance(confidence, (int, float)) and confidence < 0.6:
-        flags.append(f"Low classification confidence ({confidence}) -- route to human review.")
+    if (
+        confidence is not None
+        and isinstance(confidence, (int, float))
+        and confidence < 0.6
+    ):
+        flags.append(
+            f"Low classification confidence ({confidence}) -- route to human review."
+        )
 
     # Missing required contact fields
     if lead.get("missing_fields"):
-        flags.append(f"Missing field(s) before contact: {', '.join(lead['missing_fields'])}.")
+        flags.append(
+            f"Missing field(s) before contact: {', '.join(lead['missing_fields'])}."
+        )
 
     # Conflicting duplicate records
     if lead.get("_dup_fuzzy"):
-        flags.append(f"Possible re-submission with conflicting details ({', '.join(lead['_dup_fuzzy'])}) -- merge manually.")
+        flags.append(
+            f"Possible re-submission with conflicting details "
+            f"({', '.join(lead['_dup_fuzzy'])}) -- merge manually."
+        )
 
     # Outreach language safety check
     if outreach_text and "guarantee" in outreach_text.lower():
-        flags.append('Outreach draft used the word "guarantee" -- rewrite before sending.')
+        flags.append(
+            'Outreach draft used the word "guarantee" -- rewrite before sending.'
+        )
+
+    if outreach_text and UNSUPPORTED_CLAIMS.search(outreach_text):
+        flags.append(
+            "Outreach makes an unsupported placement/salary/visa claim -- rewrite before sending."
+        )
+
+    # Outreach hygiene: length and question count (the prompt asks for
+    # under 70 words and at most one question).
+    if outreach_text:
+        words = len(outreach_text.split())
+        if words > 90:
+            flags.append(
+                f"Outreach draft is long ({words} words) -- tighten before sending."
+            )
+        questions = outreach_text.count("?")
+        if questions > 2:
+            flags.append(
+                f"Outreach asks {questions} questions -- keep at most one next-step question."
+            )
+
+    if outreach_text and GENERIC_OUTREACH_PHRASES.search(outreach_text):
+        flags.append(
+            "Outreach uses generic filler phrasing -- personalize before sending."
+        )
 
     # Missing or invalid urgency
     raw_urgency = enrichment.get("urgency")
     norm_urgency = str(raw_urgency).lower().strip() if raw_urgency else ""
-    if not norm_urgency or norm_urgency not in URGENCY_BONUS:
-        flags.append(f"Missing or invalid urgency ('{raw_urgency}') -- defaulted to low.")
+
+    if not norm_urgency or norm_urgency not in URGENCY_SCORE:
+        flags.append(
+            f"Missing or invalid urgency ('{raw_urgency}') -- defaulted to low."
+        )
 
     # Missing or invalid objection severity
-    obj_cat = (enrichment.get("objection_category") or "").lower().strip()
+    obj_cat = (
+        str(enrichment.get("objection_category") or "")
+        .lower()
+        .strip()
+    )
+
     raw_sev = enrichment.get("objection_severity")
     norm_sev = str(raw_sev).lower().strip() if raw_sev else ""
+
+    valid_severities = {
+        "mild",
+        "moderate",
+        "strong",
+        "none",
+    }
+
     if obj_cat and obj_cat != "none":
-        if not norm_sev or norm_sev not in SEVERITY_MULTIPLIER:
-            flags.append(f"Missing or invalid objection severity ('{raw_sev}') for category '{obj_cat}' -- defaulted to moderate.")
+        if not norm_sev or norm_sev not in valid_severities:
+            flags.append(
+                f"Missing or invalid objection severity "
+                f"('{raw_sev}') for category '{obj_cat}' -- "
+                f"defaulted to moderate."
+            )
+
     elif norm_sev and norm_sev not in ("none", ""):
-        flags.append(f"Objection severity '{raw_sev}' specified but objection category is none.")
+        flags.append(
+            f"Objection severity '{raw_sev}' specified "
+            f"but objection category is none."
+        )
 
     # Suspicious or unsupported AI outputs
-    if obj_cat and obj_cat not in OBJECTION_BASE:
-        flags.append(f"Unsupported objection category '{enrichment.get('objection_category')}'.")
+    valid_objection_categories = {
+        "price",
+        "timeline",
+        "confidence",
+        "eligibility",
+        "qualification",
+        "none",
+    }
 
+    if obj_cat and obj_cat not in valid_objection_categories:
+        flags.append(
+            f"Unsupported objection category "
+            f"'{enrichment.get('objection_category')}'."
+        )
+
+    # Healthcare qualification sanity check
     edu = (lead.get("education") or "").lower()
+
     if relevant and ("engineer" in edu or "bba" in edu):
-        flags.append(f"Non-healthcare qualification ({lead.get('education')}) classified as relevant -- verify candidate intent.")
+        flags.append(
+            f"Non-healthcare qualification ({lead.get('education')}) "
+            "classified as relevant -- verify candidate intent."
+        )
 
     # Priority score formula validation
     pr = priority or lead.get("priority")
+
     if pr and pr.get("score") is not None and relevant:
-        expected = compute_priority(lead, classification, enrichment)
+        expected = compute_priority(
+            lead,
+            classification,
+            enrichment,
+        )
+
         if expected.get("score") is not None:
             if abs(pr["score"] - expected["score"]) > 0.01:
-                flags.append(f"Priority score mismatch: recorded {pr['score']} vs formula expected {expected['score']}.")
+                flags.append(
+                    f"Priority score mismatch: recorded {pr['score']} "
+                    f"vs formula expected {expected['score']}."
+                )
+
             if pr.get("band") != expected.get("band"):
-                flags.append(f"Priority band mismatch: recorded '{pr.get('band')}' vs formula expected '{expected.get('band')}'.")
+                flags.append(
+                    f"Priority band mismatch: recorded '{pr.get('band')}' "
+                    f"vs formula expected '{expected.get('band')}'."
+                )
 
     return flags
 
@@ -689,33 +1345,88 @@ def rule_based_qc(
 # Orchestration
 # ---------------------------------------------------------------------------
 
-def run_full_pipeline(raw_leads: list[dict]) -> dict:
-    """Runs every stage in order and returns the assembled, exportable dataset."""
+STAGE_ORDER = ["clean", "classify", "enrich", "prioritize", "outreach", "qc", "done"]
+
+
+def run_full_pipeline_stream(raw_leads: list[dict]) -> Iterator[tuple[str, str, str, dict | None]]:
+    """Run every stage in order, yielding (stage, status, message, payload)
+    after each one so callers can stream real per-stage progress.
+
+    Payloads are incremental result fragments; the final ("done") payload is
+    the complete, exportable dataset. `run_full_pipeline` returns exactly
+    that final dict.
+    """
+    started = time.time()
+
+    # --- Stage 1: clean + dedupe (rules) -----------------------------------
+    yield ("clean", "active", f"Cleaning {len(raw_leads)} raw leads...", None)
     cleaned = clean_and_dedupe(raw_leads)
     primaries = cleaned["primaries"]
     lead_audit = cleaned["lead_audit"]
+    n_dupes = sum(len(g["all"]) - 1 for g in cleaned["duplicate_groups"])
+    yield (
+        "clean", "done",
+        f"{len(primaries)} primary records retained ({n_dupes} duplicate record(s) resolved).",
+        {"primaries": primaries, "duplicate_groups": cleaned["duplicate_groups"], "lead_audit": lead_audit},
+    )
 
+    # --- Stage 2: classify (AI) --------------------------------------------
+    yield ("classify", "active", f"Classifying relevance for {len(primaries)} leads...", None)
     classifications = classify_leads(primaries)
-    enrichments = enrich_leads(primaries)
+    n_relevant = sum(1 for c in classifications.values() if c.get("relevant"))
+    yield (
+        "classify", "done",
+        f"{n_relevant} of {len(primaries)} leads classified relevant.",
+        {"classifications": classifications},
+    )
 
+    # --- Stage 3: enrich (AI, relevant leads only) --------------------------
+    relevant_leads = [
+        p for p in primaries if classifications.get(p["lead_id"], {}).get("relevant")
+    ]
+    yield ("enrich", "active", f"Enriching {len(relevant_leads)} relevant leads...", None)
+    enrichments = enrich_leads(relevant_leads)
+    yield (
+        "enrich", "done",
+        f"{len(enrichments)} of {len(relevant_leads)} relevant leads enriched.",
+        {"enrichments": enrichments},
+    )
+
+    # --- Stage 4: prioritize (rules) ----------------------------------------
+    yield ("prioritize", "active", "Scoring priority with the fixed formula...", None)
     for p in primaries:
         cls = classifications.get(p["lead_id"], {"relevant": False})
         enr = enrichments.get(p["lead_id"], {})
         p["priority"] = compute_priority(p, cls, enr)
+    high = sum(1 for p in primaries if (p.get("priority") or {}).get("band") == "High")
+    yield (
+        "prioritize", "done",
+        f"Priorities computed ({high} high-priority lead(s)).",
+        {"priorities_done": True},
+    )
 
+    # --- Stage 5: outreach (AI, relevant leads only) -------------------------
     outreach_items = [
         {"lead": p, "enrichment": enrichments.get(p["lead_id"], {})}
-        for p in primaries if classifications.get(p["lead_id"], {}).get("relevant")
+        for p in relevant_leads
     ]
+    yield ("outreach", "active", f"Drafting personalized outreach for {len(outreach_items)} lead(s)...", None)
     outreach = generate_outreach(outreach_items)
+    yield (
+        "outreach", "done",
+        f"{len(outreach)} outreach draft(s) generated.",
+        {"outreach": outreach},
+    )
 
-    qc = {}
+    # --- Stage 6: QC (rules) -------------------------------------------------
+    yield ("qc", "active", "Running rule-based quality checks...", None)
+    qc: dict[str, list[str]] = {}
     for p in primaries:
         cls = classifications.get(p["lead_id"], {})
         enr = enrichments.get(p["lead_id"], {})
         qc[p["lead_id"]] = rule_based_qc(p, cls, enr, outreach.get(p["lead_id"]), p.get("priority"))
 
-    # Include duplicate / merged leads in QC so all 30 original lead IDs are traceable
+    # Include duplicate / merged leads in QC so all original lead IDs are traceable
     for audit in lead_audit:
         lid = audit["lead_id"]
         if lid not in qc:
@@ -724,7 +1435,15 @@ def run_full_pipeline(raw_leads: list[dict]) -> dict:
             elif audit["status"] == "flagged" or audit["requires_human_review"]:
                 qc[lid] = [f"Excluded from active batch pending review: {audit['reason']}."]
 
-    return {
+    n_flagged = sum(1 for flags in qc.values() if flags)
+    yield (
+        "qc", "done",
+        f"{n_flagged} record(s) carry QC flags.",
+        {"qc": qc},
+    )
+
+    runtime = round(time.time() - started, 2)
+    result = {
         "primaries": primaries,
         "duplicate_groups": cleaned["duplicate_groups"],
         "lead_audit": lead_audit,
@@ -732,4 +1451,33 @@ def run_full_pipeline(raw_leads: list[dict]) -> dict:
         "enrichments": enrichments,
         "outreach": outreach,
         "qc": qc,
+        "summary": {
+            "raw_leads": len(raw_leads),
+            "primaries": len(primaries),
+            "classified": len(classifications),
+            "relevant": len(relevant_leads),
+            "enriched": len(enrichments),
+            "prioritized": sum(1 for p in primaries if (p.get("priority") or {}).get("band") not in (None, "N/A")),
+            "with_outreach": len(outreach),
+            "needs_review": n_flagged,
+            "duplicates_merged": sum(len(g["exact"]) for g in cleaned["duplicate_groups"]),
+            "duplicates_flagged": sum(len(g["fuzzy"]) for g in cleaned["duplicate_groups"]),
+            "runtime_seconds": runtime,
+        },
     }
+    yield (
+        "done", "done",
+        f"Pipeline complete: {len(primaries)} primary leads processed in {runtime}s.",
+        result,
+    )
+
+
+def run_full_pipeline(raw_leads: list[dict]) -> dict:
+    """Runs every stage in order and returns the assembled, exportable dataset."""
+    result: dict | None = None
+    for _, _, _, payload in run_full_pipeline_stream(raw_leads):
+        if payload is not None and "summary" in payload:
+            result = payload
+    if result is None:  # pragma: no cover - defensive
+        raise RuntimeError("Pipeline produced no result.")
+    return result

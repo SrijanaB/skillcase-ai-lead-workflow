@@ -18,33 +18,37 @@ data/leads.json (raw, messy)
    - flags missing required fields
         |
         v
-  classify_leads()            <- 1 batched Gemini call
+  classify_leads()            <- batched Gemini calls (15 leads/call, 2 in parallel)
    - relevant / not relevant / reason / confidence
    - relevance criteria are explicit in the prompt (see pipeline.py)
         |
         v
-  enrich_leads()               <- 1 batched Gemini call
-   - profile, intent, need, objection (+ category), missing info,
-     opportunity, next action
+  enrich_leads()               <- batched Gemini calls, RELEVANT leads only
+   - profile, intent (+ level), need, objection (+ category/severity),
+     urgency, engagement, missing info, opportunity, next action
         |
         v
   compute_priority()           <- rules only, no AI
-   - transparent, documented scoring formula (see the app's own
-     "How priority is scored" panel, or pipeline.py)
+   - transparent, documented scoring formula (see pipeline.py):
+     0.40*Intent + 0.25*Urgency + 0.20*Fit + 0.15*Engagement
+   - objections never lower the score; they steer the follow-up
         |
         v
-  generate_outreach()          <- 1 batched Gemini call
-   - personalized message per relevant lead
-   - explicitly instructed not to promise job outcomes
+  generate_outreach()          <- batched Gemini calls (6 leads/call)
+   - personalized message per relevant lead, grounded in the original
+     conversation; explicitly instructed not to promise job outcomes
         |
         v
   rule_based_qc()               <- rules only, no AI
    - contradiction detection (relevant=true but reason reads
      disqualifying)
    - low-confidence routing (< 0.6 -> human review)
+   - missing/malformed classification or enrichment -> human review
    - missing-field flags
    - fuzzy-duplicate flags
-   - catches the word "guarantee" in outreach drafts before they'd go out
+   - outreach hygiene: guarantee/placement/salary/visa claims, generic
+     filler, length, question count
+   - priority score/band recomputed and cross-checked against the formula
         |
         v
   final dataset (table in the UI, or CSV export)
@@ -52,9 +56,35 @@ data/leads.json (raw, messy)
 
 Every stage lives in `pipeline.py` as a plain, independently testable
 function. `app.py` is a thin Flask layer that exposes one endpoint per
-stage (so the frontend can show live per-stage progress) plus one
-`/api/pipeline/run` endpoint that runs everything in one call (used by
-the automation script below).
+stage plus two end-to-end entry points: `/api/pipeline/run` (single
+response, used by the automation script below) and `/api/pipeline/stream`
+(server-sent events with real per-stage progress, used by the web UI).
+
+## Gemini robustness
+
+All AI calls go through one helper (`_ask_for_json_array` in
+`pipeline.py`) that provides:
+
+- **JSON response mode with a schema**, falling back automatically to
+  plain JSON mode if the model rejects `response_json_schema` (400).
+- **Batched requests** (classification 15 leads/call, enrichment 8,
+  outreach 6) with bounded concurrency, so no single response is large
+  enough to hit the max-token ceiling and each call stays fast.
+- **Exponential backoff with jitter** on 429/500/502/503/504, network
+  timeouts and malformed output, honoring the server's `retryDelay`
+  hint on 429s (4 attempts max, capped wait).
+- **Truncation salvage**: a response cut off mid-array keeps its
+  complete records instead of being discarded.
+- **Echo validation**: every stage checks that the model returned every
+  lead id; a skipped lead gets a conservative placeholder and a QC flag
+  rather than silently vanishing.
+- **Explicit timeouts** and automatic function calling (AFC) disabled
+  (this pipeline never uses function calling).
+
+Enrichment and outreach run only for leads classified relevant, so no
+API time is spent on leads that will never be contacted.
+
+## Quality control
 
 ## Automation
 
@@ -77,17 +107,20 @@ Example cron entry (every morning at 7am):
 
 Three independent mechanisms, not just one:
 
-1. **Structured-output validation** — every Gemini call is prompted for
-   a strict JSON array; a failed parse triggers one automatic retry
-   before surfacing an error (see `_ask_for_json_array_with_retry` in
-   `pipeline.py`).
+1. **Structured-output validation** — every Gemini call requests strict
+   JSON (schema first, plain JSON mode as fallback); malformed or
+   truncated output is retried with backoff, salvaged, or backfilled
+   with a placeholder and flagged (see `pipeline.py`).
 2. **Rule-based sanity checks** — contradiction detection, confidence
-   thresholding, missing-field flags, duplicate-conflict flags, and an
-   outreach-language check, all deterministic and independent of the AI
-   calls that produced the data they're checking.
-3. **Human review queue** — the "Needs review" filter in the UI surfaces
-   exactly the leads that failed one of the checks above, rather than
-   the system silently proceeding.
+   thresholding, missing-field flags, duplicate-conflict flags,
+   missing/malformed classification or enrichment, outreach claim and
+   hygiene checks, and a full recomputation of the priority formula,
+   all deterministic and independent of the AI calls that produced the
+   data they're checking.
+3. **Human review queue** — the "Needs Human Review" filter in the UI
+   surfaces exactly the leads that failed one of the checks above, and
+   leads with genuine uncertainty are routed there rather than silently
+   accepted.
 
 Three concrete examples the pipeline catches on this dataset (shown
 live in the "What the pipeline flagged" panel after a run):

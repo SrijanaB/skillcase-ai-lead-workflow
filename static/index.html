@@ -9,21 +9,42 @@
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --ink: #1B2622; --ink-soft: #52615A; --ink-faint: #8B978F;
-    --paper: #ECEFE7; --paper-raised: #F7F8F3; --line: #CBD1C3; --line-strong: #A8B0A0;
-    --teal: #2F6F63; --teal-soft: #E1EBE6; --gold: #A9781F; --gold-soft: #F2E8D2;
-    --rust: #A14A31; --rust-soft: #F3E1D9;
+    --ink: #102A56;
+    --ink-soft: #5F6F86;
+    --ink-faint: #8D99AA;
+  
+    --paper: #F7F9FC;
+    --paper-raised: #FFFFFF;
+  
+    --line: #E1E6EE;
+    --line-strong: #CBD3DF;
+  
+    --navy: #0B2A66;
+    --navy-soft: #EEF3FB;
+  
+    --yellow: #F4C542;
+    --yellow-soft: #FFF7D6;
+  
+    --green: #2E7D5B;
+    --green-soft: #E7F4ED;
+  
+    --red: #B94A48;
+    --red-soft: #FCEAEA;
+
+    /* Accent palette used by stage indicators, badges and review notes.
+       (These were referenced but never defined, which left the stage
+       strip, priority badges and QC notes unstyled.) */
+    --teal: #1F6E5A;
+    --teal-soft: #E3F1EB;
+    --gold: #8A6D1D;
+    --gold-soft: #FBF0CE;
+    --rust: #A8433F;
+    --rust-soft: #F9E4E3;
+  
     --font-display: 'Newsreader', Georgia, 'Times New Roman', serif;
     --font-body: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --ink: #E9ECE5; --ink-soft: #B9C2B7; --ink-faint: #7C877E;
-      --paper: #141815; --paper-raised: #1C221D; --line: #313A32; --line-strong: #45503F;
-      --teal: #7FBBA9; --teal-soft: #1D2E28; --gold: #D7B268; --gold-soft: #2E271A;
-      --rust: #E08165; --rust-soft: #33221C;
-    }
-  }
+
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
   .wrap { max-width: 980px; margin: 0 auto; padding: 40px 24px 80px; }
@@ -97,6 +118,148 @@
 
   footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--ink-faint); }
 
+
+  /* Initial upload screen */
+  .upload-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
+  .upload-container { width: min(680px, 100%); text-align: center; }
+  .upload-brand { font-family: var(--font-display); font-size: 15px; letter-spacing: .16em; color: var(--teal); margin-bottom: 24px; }
+  .upload-container h1 { font-family: var(--font-display); font-weight: 500; font-size: clamp(38px, 6vw, 56px); margin: 0 0 10px; letter-spacing: -.02em; }
+  .upload-subtitle { margin: 0 auto 30px; color: var(--ink-soft); max-width: 54ch; }
+  .upload-box { border: 1px dashed var(--line-strong); background: var(--paper-raised); border-radius: 5px; padding: 42px 28px; }
+  .upload-box h2 { font-family: var(--font-display); font-weight: 500; font-size: 22px; margin: 0 0 6px; }
+  .upload-box p { margin: 0 0 18px; color: var(--ink-soft); font-size: 13.5px; }
+  .upload-actions { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .upload-file-label { display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-body); font-weight: 600; font-size: 14px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); padding: 11px 20px; border-radius: 3px; cursor: pointer; }
+  .upload-sample { background: transparent !important; color: var(--ink) !important; border-color: var(--line-strong) !important; }
+  .upload-status { min-height: 22px; margin-top: 18px; font-size: 13px; color: var(--ink-soft); }
+  .upload-status.err { color: var(--rust); }
+  .upload-run { margin-top: 18px; min-width: 180px; }
+  .upload-hint { margin-top: 14px; color: var(--ink-faint); font-size: 12px; }
+
+  .upload-hint { margin-top: 14px; color: var(--ink-faint); font-size: 12px; }
+
+
+  /* =========================================================
+     DOTTED GLOBE PROCESSING SCREEN
+     ========================================================= */
+
+  .processing-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    background: #ffffff;
+  }
+
+  /* Moved out of the (invalidly) nested block above so the progress bar
+     renders in every browser. */
+  .progress-bar {
+    width: 520px;
+    max-width: 80%;
+    height: 6px;
+    background: #e8ecf3;
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 18px auto 14px;
+  }
+
+  .progress-fill {
+    width: 0%;
+    height: 100%;
+    background: #173b7a;
+    border-radius: 999px;
+    transition: width 0.5s ease;
+  }
+
+  .processing-container {
+    width: min(700px, 100%);
+    text-align: center;
+  }
+
+  .processing-brand {
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    color: #0B2A66;
+    margin-bottom: 30px;
+  }
+
+  .processing-container h1 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 38px;
+    line-height: 1.15;
+    color: #0B2A66;
+    margin: 0 0 8px;
+  }
+
+  .processing-stage {
+    font-size: 17px;
+    font-weight: 600;
+    color: #0B2A66;
+    margin-bottom: 0;
+  }
+
+  .globe-loader {
+    width: min(430px, 72vw);
+    aspect-ratio: 1;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  #cobeGlobe {
+    width: 100%;
+    height: 100%;
+    display: block;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+  }
+
+  .progress-meta {
+    width: min(430px, 72vw);
+    margin: -5px auto 0;
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+
+  #progressPercent {
+    color: #0B2A66;
+  }
+
+  .processing-message {
+    max-width: 480px;
+    margin: 14px auto 0;
+    color: var(--ink-soft);
+    font-size: 13.5px;
+  }
+
+
+  @media (max-width: 640px) {
+    .pipeline { grid-template-columns: repeat(3, 1fr); }
+    .row { grid-template-columns: 40px 1fr 70px 24px; }
+    .row .priority-col { display: none; }
+    .detail { padding-left: 30px; }
+    .detail dl { grid-template-columns: 1fr; }
+
+    .processing-container h1 {
+      font-size: 32px;
+    }
+
+    .globe-loader {
+      width: min(340px, 78vw);
+    }
+
+    .progress-meta {
+      width: min(340px, 78vw);
+    }
+  }
+
   @media (max-width: 640px) {
     .pipeline { grid-template-columns: repeat(3, 1fr); }
     .row { grid-template-columns: 40px 1fr 70px 24px; }
@@ -104,9 +267,219 @@
     .detail { padding-left: 30px; }
     .detail dl { grid-template-columns: 1fr; }
   }
+
+  .outreach-box {
+    margin-top: 20px;
+    padding: 16px;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+  }
+  
+  .outreach-box h4 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  
+  .outreach-box textarea {
+    display: block;
+    width: 100%;
+    min-height: 190px;
+    padding: 13px 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.55;
+    resize: vertical;
+    overflow-y: hidden;
+    box-sizing: border-box;
+  }
+  
+  .outreach-box textarea:focus {
+    outline: none;
+    border-color: var(--navy);
+  }
+  
+  .outreach-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+  
+  .copy-btn {
+    background: transparent;
+    color: var(--ink);
+    border-color: var(--line-strong);
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+  
+  .contact-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  
+  .contact-checkbox input {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--navy);
+    cursor: pointer;
+  }
+  
+  .row.completing {
+    opacity: 0.45;
+    background: var(--paper-raised);
+    transition: opacity 0.25s ease, background 0.25s ease;
+  }
+  
+  .row.completing .id,
+  .row.completing .name {
+    color: var(--ink-faint);
+  }
+  
+  .skillcase-toast {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 1000;
+    padding: 11px 16px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--navy);
+    color: white;
+    font-size: 13px;
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  
+  .skillcase-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* =========================================================
+     WORKSPACE COMPONENTS (referenced by the markup but previously
+     missing from the stylesheet)
+     ========================================================= */
+  .workspace-tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .workspace-tabs button { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); font-weight: 500; font-size: 12.5px; padding: 6px 13px; }
+  .workspace-tabs button.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  .lead-controls { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .lead-controls input[type="search"] { flex: 1 1 220px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 3px; font-family: var(--font-body); font-size: 13.5px; background: var(--paper-raised); color: var(--ink); }
+  .lead-controls select { padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 3px; background: var(--paper-raised); color: var(--ink); font-family: var(--font-body); font-size: 13px; }
+
+  .empty-state { padding: 34px 12px; text-align: center; color: var(--ink-faint); font-size: 13.5px; border: 1px dashed var(--line-strong); border-radius: 3px; background: var(--paper-raised); }
+
+  .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
+  .detail-item h4 { margin: 0 0 3px; font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); }
+  .detail-item p { margin: 0; color: var(--ink); }
+  .detail-item.detail-full { grid-column: 1 / -1; }
+
+  .review-note { margin-top: 12px; padding: 10px 12px; border-left: 2px solid var(--rust); background: var(--rust-soft); color: var(--rust); font-size: 12.5px; border-radius: 0 3px 3px 0; }
+
+  /* Lead rows have five cells, not the six the original grid assumed. */
+  .row { grid-template-columns: 52px 1.4fr 90px minmax(130px, 1fr) 24px; }
+
+  .processing-error {
+    display: none;
+    margin: 16px auto 0;
+    max-width: 520px;
+    padding: 12px 14px;
+    border: 1px solid var(--rust);
+    border-radius: 4px;
+    background: var(--rust-soft);
+    color: var(--rust);
+    font-size: 13.5px;
+    text-align: left;
+  }
+  .processing-error.show { display: block; }
+
+  .processing-actions { display: none; margin-top: 16px; justify-content: center; }
+  .processing-actions.show { display: flex; }
 </style>
 </head>
 <body>
+
+  <!-- =========================================================
+     PROCESSING SCREEN
+     ========================================================= -->
+<div id="processingScreen" class="processing-screen" style="display:none;">
+
+  <div class="processing-container">
+
+    <div class="processing-brand">
+      SKILLCASE
+    </div>
+
+    <h1>Processing your leads</h1>
+
+    <div id="processingStage" class="processing-stage">
+      Preparing pipeline...
+    </div>
+
+    <div class="globe-loader">
+      <canvas id="cobeGlobe"></canvas>
+    </div>
+
+    <div class="progress-bar">
+      <div id="progressFill" class="progress-fill"></div>
+    </div>
+    
+    <div class="progress-meta">
+      <span id="progressStep">0 / 6</span>
+      <span id="progressPercent">0%</span>
+    </div>
+
+    <p id="processingMessage" class="processing-message">
+      Getting your dataset ready...
+    </p>
+
+    <div id="processingError" class="processing-error" role="alert"></div>
+
+    <div id="processingActions" class="processing-actions">
+      <button id="backToUploadBtn" class="secondary upload-sample" type="button">Back and try again</button>
+    </div>
+
+  </div>
+
+</div>
+<div id="uploadScreen" class="upload-screen">
+  <div class="upload-container">
+    <div class="upload-brand">SKILLCASE</div>
+    <h1>AI Lead Intelligence</h1>
+    <p class="upload-subtitle">
+      Clean, qualify and prioritize your B2C leads with an AI-assisted sales workflow.
+    </p>
+    <div class="upload-box">
+      <h2>Upload your lead dataset</h2>
+      <p>Upload a CSV lead sheet or use the bundled 30-lead sample dataset.</p>
+      <div class="upload-actions">
+        <label class="upload-file-label">
+          Upload CSV
+          <input id="csvInput" type="file" accept=".csv" style="display:none;">
+        </label>
+        <button id="useSampleBtn" class="secondary upload-sample">Use sample dataset</button>
+      </div>
+      <div id="loadStatus" class="upload-status">No dataset loaded yet.</div>
+    </div>
+    <button id="runBtn" class="upload-run" disabled>Run pipeline</button>
+    <div class="upload-hint">The lead workspace will appear after the pipeline finishes processing your dataset.</div>
+  </div>
+</div>
+
+<div id="workspaceScreen" style="display:none;">
 <div class="wrap">
   <header class="masthead">
     <div>
@@ -116,32 +489,11 @@
     <div class="manifest-no" id="recordCount">30 records logged (sample)</div>
   </header>
 
-  <div class="pipeline" id="pipeline">
-    <div class="stage" data-stage="clean"><span class="n">1</span><span class="label">Clean &amp; dedupe</span></div>
-    <div class="stage" data-stage="classify"><span class="n">2</span><span class="label">Classify</span></div>
-    <div class="stage" data-stage="enrich"><span class="n">3</span><span class="label">Enrich</span></div>
-    <div class="stage" data-stage="prioritize"><span class="n">4</span><span class="label">Prioritize</span></div>
-    <div class="stage" data-stage="outreach"><span class="n">5</span><span class="label">Outreach</span></div>
-    <div class="stage" data-stage="qc"><span class="n">6</span><span class="label">QC review</span></div>
-  </div>
-
-  <section class="block" style="margin-top:0;">
-    <h2>Load your leads</h2>
-    <p class="desc">Upload a CSV export of your own lead sheet, or run the pipeline on the bundled 30-lead sample dataset.</p>
-    <div class="controls" style="margin-bottom:0;">
-      <label class="secondary" style="display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-strong);padding:11px 20px;border-radius:3px;cursor:pointer;font-weight:500;font-size:14px;">
-        Upload CSV
-        <input id="csvInput" type="file" accept=".csv" style="display:none;">
-      </label>
-      <button id="useSampleBtn" class="secondary">Use sample dataset</button>
-      <span class="runlog" id="loadStatus">No file loaded yet — sample dataset will be used.</span>
-    </div>
-  </section>
-
+  
   <div class="controls">
-    <button id="runBtn">Run pipeline</button>
-    <button id="downloadBtn" class="secondary" disabled>Download CSV</button>
-    <span class="runlog" id="runlog"></span>
+    <button id="downloadBtn" class="secondary" disabled>
+      Download CSV
+    </button>
   </div>
 
   <section class="block" id="problemsSection" style="display:none;">
@@ -151,49 +503,172 @@
   </section>
 
   <section class="block" id="resultsSection" style="display:none;">
-    <h2>Lead ledger</h2>
-    <p class="desc">Click any row for the full enrichment and outreach draft. Duplicates are collapsed into their primary record.</p>
-    <div class="filterbar" id="filterbar">
-      <button data-filter="all" class="active">All</button>
-      <button data-filter="relevant">Relevant</button>
-      <button data-filter="high">High priority</button>
-      <button data-filter="review">Needs review</button>
-      <button data-filter="audit">Audit (All 30 Leads)</button>
+    <h2>Your leads</h2>
+    <p class="desc">
+      Prioritized leads ready for action. Expand a lead to view intelligence,
+      recommended next steps and personalized outreach.
+    </p>
+    <div class="workspace-tabs" id="workspaceTabs">
+      <button data-filter="all" class="active">All Leads</button>
+      <button data-filter="review">Needs Human Review</button>
+      <button data-filter="removed">Removed Leads</button>
+      <button data-filter="completed">Completed Leads</button>
+    </div>
+    
+    <div class="lead-controls">
+      <input
+        id="leadSearch"
+        type="search"
+        placeholder="Search leads..."
+        autocomplete="off"
+      >
+    
+      <select id="priorityFilter">
+        <option value="all">Show: All</option>
+        <option value="high">Show: High</option>
+        <option value="medium">Show: Medium</option>
+        <option value="low">Show: Low</option>
+      </select>
+    
+      <select id="prioritySort">
+        <option value="desc">Priority: High → Low</option>
+        <option value="asc">Priority: Low → High</option>
+      </select>
     </div>
     <div class="ledger" id="ledger"></div>
   </section>
 
-  <section class="block">
-    <h2>How priority is scored</h2>
-    <p class="desc">Kept rule-based and visible on purpose — a salesperson should be able to see exactly why a lead outranks another, not trust a black-box number.</p>
-    <div class="formula">
-      Score = <code>(German level &times; 2)</code> + <code>min(experience years, 5)</code> + <code>source bonus</code> + <code>urgency bonus</code> &minus; <code>(objection base &times; severity multiplier)</code>
-      <ul>
-        <li><strong>German proficiency:</strong> B2 = +6 points, B1 = +4 points, A2 = +2 points, A1 / None = +0 points.</li>
-        <li><strong>Experience:</strong> +1 point per year of relevant experience, capped at 5 points maximum.</li>
-        <li><strong>Source bonus:</strong> Referral +1 point, WhatsApp +0.5 points.</li>
-        <li><strong>AI-derived urgency:</strong> High +2 points (requesting call/immediate timeline), Medium +1 point (interested without timeline), Low +0 points (early exploration).</li>
-        <li><strong>Objection category &amp; severity penalty:</strong> Objection base &times; severity multiplier.
-          <ul>
-            <li>Base penalties: Price &minus;2.0, Qualification &minus;1.5, Eligibility &minus;1.5, Confidence &minus;1.0, Timeline &minus;0.5, None 0.</li>
-            <li>Severity multipliers: Strong &times;1.5, Moderate &times;1.0, Mild &times;0.5, None &times;0 (defaults to Moderate if severity is missing or invalid for a stated objection).</li>
-          </ul>
-        </li>
-        <li><strong>Priority bands:</strong> <strong>High</strong> (&ge; 8) &middot; <strong>Medium</strong> (4&ndash;7.9) &middot; <strong>Low</strong> (&lt; 4). Leads classified as not relevant are excluded from scoring.</li>
-        <li><strong>Quality control separation:</strong> Classification confidence is intentionally <em>excluded</em> from priority score calculations and is reserved strictly for QC review routing (flagging confidence &lt; 0.6 for human review).</li>
-      </ul>
-    </div>
-  </section>
 
   <footer>
     Classification, enrichment and outreach drafting are generated by Gemini at run time, through this app's own server &mdash; nothing here is pre-written. Rule-based steps (cleaning, deduplication, priority scoring, contradiction checks) run identically every time.
   </footer>
 </div>
+</div>
+<script>
+  window.createSkillcaseGlobe = function () {
+    const canvas = document.getElementById("cobeGlobe");
+
+    if (!canvas) {
+      console.error("Globe canvas not found");
+      return null;
+    }
+
+    const ctx = canvas.getContext("2d");
+    const container = canvas.parentElement;
+
+    let animationId;
+    let rotation = 0;
+
+    function resize() {
+      const size = Math.min(container.clientWidth, 430);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      canvas.width = size * dpr;
+      canvas.height = size * dpr;
+
+      canvas.style.width = size + "px";
+      canvas.style.height = size + "px";
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    resize();
+
+    function draw() {
+      const size = Math.min(container.clientWidth, 430);
+      const cx = size / 2;
+      const cy = size / 2;
+      const radius = size * 0.40;
+
+      ctx.clearRect(0, 0, size, size);
+
+      /*
+       * Dotted globe
+       */
+      const latSteps = 28;
+      const lonSteps = 56;
+
+      for (let lat = -90; lat <= 90; lat += 6) {
+        const latRad = lat * Math.PI / 180;
+        const cosLat = Math.cos(latRad);
+        const sinLat = Math.sin(latRad);
+
+        for (let lon = 0; lon < 360; lon += 6) {
+          const lonRad =
+            (lon * Math.PI / 180) + rotation;
+
+          const x3d = cosLat * Math.sin(lonRad);
+          const y3d = sinLat;
+          const z3d = cosLat * Math.cos(lonRad);
+
+          // Only draw the visible half of the sphere
+          if (z3d <= 0) continue;
+
+          const x = cx + radius * x3d;
+          const y = cy - radius * y3d;
+
+          // Smaller dots toward the edge
+          const depth = z3d;
+          const dotSize = 1.1 + depth * 1.3;
+          const alpha = 0.25 + depth * 0.75;
+
+          ctx.beginPath();
+          ctx.arc(x, y, dotSize, 0, Math.PI * 2);
+
+          ctx.fillStyle =
+            `rgba(11, 42, 102, ${alpha})`;
+
+          ctx.fill();
+        }
+      }
+
+      rotation += 0.006;
+
+      animationId = requestAnimationFrame(draw);
+    }
+
+    canvas.style.opacity = "1";
+    draw();
+
+    return {
+      destroy() {
+        if (animationId) {
+          cancelAnimationFrame(animationId);
+        }
+
+        ctx.clearRect(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+      }
+    };
+  };
+</script>
 
 <script>
-let STATE = { primaries: [], duplicateGroups: [], leadAudit: [], classifications: {}, enrichments: {}, outreach: {}, qc: {} };
-let currentFilter = 'all';
-let UPLOADED_LEADS = null; // null = use bundled sample dataset
+  let STATE = {
+    primaries: [],
+    duplicateGroups: [],
+    leadAudit: [],
+    classifications: {},
+    enrichments: {},
+    outreach: {},
+    qc: {}
+  };
+  
+  let currentTab = 'all';
+  let priorityFilter = 'all';
+  let sortOrder = 'desc';
+  let searchTerm = '';
+  
+  let contactedLeads = JSON.parse(
+    localStorage.getItem('skillcase_contacted_leads') || '{}'
+  );
+  let completingLeads = {};
+
+  let UPLOADED_LEADS = null;
 
 // --- CSV upload: tolerant of header naming/order differences ---
 const FIELD_ALIASES = {
@@ -258,107 +733,341 @@ function parseCSVText(text) {
 document.getElementById('csvInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
+
   const text = await file.text();
   const parsed = parseCSVText(text);
   const status = document.getElementById('loadStatus');
+  const runBtn = document.getElementById('runBtn');
+
   if (!parsed.length) {
     status.textContent = 'Could not read any rows from that file — check it has a header row.';
     status.classList.add('err');
+
+    runBtn.disabled = true;
     return;
   }
+
   UPLOADED_LEADS = parsed;
+
   status.classList.remove('err');
-  status.textContent = `Loaded ${parsed.length} leads from "${file.name}". Click "Run pipeline" to process them.`;
-  document.getElementById('recordCount').textContent = `${parsed.length} records logged (uploaded)`;
+  status.textContent =
+    `Loaded ${parsed.length} leads from "${file.name}". Click "Run pipeline" to process them.`;
+
+  document.getElementById('recordCount').textContent =
+    `${parsed.length} records logged (uploaded)`;
+
+  // Enable pipeline only after a valid dataset has been loaded
+  runBtn.disabled = false;
 });
 document.getElementById('useSampleBtn').addEventListener('click', () => {
   UPLOADED_LEADS = null;
+
   document.getElementById('csvInput').value = '';
+
   const status = document.getElementById('loadStatus');
+  const runBtn = document.getElementById('runBtn');
+
   status.classList.remove('err');
   status.textContent = 'Using the bundled 30-lead sample dataset.';
-  document.getElementById('recordCount').textContent = '30 records logged (sample)';
+
+  document.getElementById('recordCount').textContent =
+    '30 records logged (sample)';
+
+  // Sample dataset is valid input, so enable the pipeline
+  runBtn.disabled = false;
 });
 
 function setStage(name, status) {
   const el = document.querySelector(`.stage[data-stage="${name}"]`);
+
+  // The pipeline strip is no longer displayed in the main workspace.
+  if (!el) return;
+
   el.classList.remove('active', 'done', 'error');
-  if (status) el.classList.add(status);
+
+  if (status) {
+    el.classList.add(status);
+  }
 }
 function log(msg, isErr) {
   const el = document.getElementById('runlog');
-  el.textContent = msg;
-  el.classList.toggle('err', !!isErr);
+
+  if (el) {
+    el.textContent = msg;
+    el.classList.toggle('err', !!isErr);
+  }
+
+  const processingMessage =
+    document.getElementById('processingMessage');
+
+  if (processingMessage) {
+    processingMessage.textContent = msg;
+  }
+}
+
+function updateProcessingProgress(step, stage, message) {
+  const percent = Math.round((step / 6) * 100);
+
+  document.getElementById('progressStep').textContent = `${step} / 6`;
+  document.getElementById('progressPercent').textContent = `${percent}%`;
+  document.getElementById('processingStage').textContent = stage;
+  document.getElementById('processingMessage').textContent = message;
+
+  const progressFill = document.getElementById('progressFill');
+
+  if (progressFill) {
+    progressFill.style.width = `${percent}%`;
+  }
 }
 async function postJSON(url, body) {
   const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  let data = null;
+  try { data = await res.json(); } catch { /* non-JSON error page */ }
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`${url} failed (${res.status}): ${text.slice(0, 200)}`);
+    const detail = (data && data.error) ? data.error : `HTTP ${res.status}`;
+    throw new Error(detail);
   }
-  return res.json();
+  return data;
 }
 
+const STAGE_WEIGHTS = {
+  clean: 1,
+  classify: 2,
+  enrich: 3,
+  prioritize: 4,
+  outreach: 5,
+  qc: 6,
+};
+const STAGE_LABELS = {
+  clean: 'Cleaning and deduplicating',
+  classify: 'Classifying relevance with AI',
+  enrich: 'Enriching relevant leads with AI',
+  prioritize: 'Scoring priorities (rule-based)',
+  outreach: 'Drafting personalized outreach with AI',
+  qc: 'Running rule-based quality checks',
+  done: 'Processing complete',
+};
+
+function showPipelineError(message) {
+  const box = document.getElementById('processingError');
+  const actions = document.getElementById('processingActions');
+
+  if (box) {
+    box.textContent = 'Pipeline stopped: ' + message;
+    box.classList.add('show');
+  }
+
+  if (actions) {
+    actions.classList.add('show');
+  }
+
+  log('Pipeline stopped: ' + message, true);
+}
+
+function clearPipelineError() {
+  const box = document.getElementById('processingError');
+  const actions = document.getElementById('processingActions');
+
+  if (box) {
+    box.classList.remove('show');
+    box.textContent = '';
+  }
+
+  if (actions) {
+    actions.classList.remove('show');
+  }
+}
+
+function applyStagePayload(stage, payload) {
+  if (!payload) return;
+
+  if (stage === 'clean') {
+    STATE.primaries = payload.primaries || [];
+    STATE.duplicateGroups = payload.duplicate_groups || [];
+    STATE.leadAudit = payload.lead_audit || [];
+  } else if (stage === 'classify') {
+    STATE.classifications = payload.classifications || {};
+  } else if (stage === 'enrich') {
+    STATE.enrichments = payload.enrichments || {};
+  } else if (stage === 'outreach') {
+    STATE.outreach = payload.outreach || {};
+  } else if (stage === 'qc') {
+    STATE.qc = payload.qc || {};
+  }
+}
+
+// Drives the whole pipeline over ONE streamed request so the progress
+// bar reflects real backend stage completions — never simulated progress.
 async function runPipeline() {
   const runBtn = document.getElementById('runBtn');
+
   runBtn.disabled = true;
   document.getElementById('downloadBtn').disabled = true;
-  ['clean','classify','enrich','prioritize','outreach','qc'].forEach(s => setStage(s, null));
 
-  try {
-    setStage('clean', 'active');
-    log('Normalizing fields and grouping duplicates…');
-    const cleanResult = await postJSON('/api/pipeline/clean', UPLOADED_LEADS ? { leads: UPLOADED_LEADS } : {});
-    STATE.primaries = cleanResult.primaries || [];
-    STATE.duplicateGroups = cleanResult.duplicate_groups || [];
-    STATE.leadAudit = cleanResult.lead_audit || [];
-    setStage('clean', 'done');
+  clearPipelineError();
 
-    setStage('classify', 'active');
-    log(`Asking Gemini to judge relevance for ${STATE.primaries.length} leads…`);
-    STATE.classifications = await postJSON('/api/pipeline/classify', { leads: STATE.primaries });
-    setStage('classify', 'done');
+  // Show the dedicated processing screen
+  showProcessingScreen();
 
-    setStage('enrich', 'active');
-    log('Extracting profile, intent, needs, urgency and objections…');
-    STATE.enrichments = await postJSON('/api/pipeline/enrich', { leads: STATE.primaries });
-    setStage('enrich', 'done');
+  // Reset pipeline stages
+  ['clean', 'classify', 'enrich', 'prioritize', 'outreach', 'qc']
+    .forEach(s => setStage(s, null));
 
-    setStage('prioritize', 'active');
-    log('Scoring priority with a fixed rule-based formula…');
-    const priorities = await postJSON('/api/pipeline/prioritize', {
-      leads: STATE.primaries, classifications: STATE.classifications, enrichments: STATE.enrichments
-    });
-    STATE.primaries.forEach(p => { p.priority = priorities[p.lead_id]; });
-    setStage('prioritize', 'done');
+  let completedStages = 0;
 
-    setStage('outreach', 'active');
-    const relevant = STATE.primaries.filter(p => STATE.classifications[p.lead_id]?.relevant);
-    log(`Drafting personalized outreach for ${relevant.length} relevant leads…`);
-    const items = relevant.map(p => ({ lead: p, enrichment: STATE.enrichments[p.lead_id] || {} }));
-    STATE.outreach = await postJSON('/api/pipeline/outreach', { items });
-    setStage('outreach', 'done');
+  function progressFor(step) {
+    return Math.round((Math.min(step, 6) / 6) * 100);
+  }
 
-    setStage('qc', 'active');
-    log('Running rule-based contradiction and quality checks…');
-    STATE.qc = await postJSON('/api/pipeline/qc', {
-      leads: STATE.primaries, classifications: STATE.classifications,
-      enrichments: STATE.enrichments, outreach: STATE.outreach
-    });
-    setStage('qc', 'done');
+  function handleStageEvent(event) {
+    const stage = event.stage;
+    const status = event.status;
 
-    const totalAccounted = STATE.leadAudit ? STATE.leadAudit.length : STATE.primaries.length;
-    log(`Done — ${STATE.primaries.length} primary leads processed (${totalAccounted} total records accounted for, ${STATE.duplicateGroups.length} duplicate group(s) resolved).`);
-    renderProblems();
-    renderLedger();
-    document.getElementById('problemsSection').style.display = 'block';
+    setStage(stage, status);
+
+    if (status === 'active') {
+      log(event.message || STAGE_LABELS[stage] || stage + '...');
+      updateProcessingProgress(
+        completedStages,
+        STAGE_LABELS[stage] || stage,
+        event.message || STAGE_LABELS[stage] || 'Working...'
+      );
+      return;
+    }
+
+    if (status === 'done' && stage !== 'done') {
+      completedStages += 1;
+      log(event.message || (STAGE_LABELS[stage] + ' done.'));
+      updateProcessingProgress(
+        completedStages,
+        STAGE_LABELS[stage] + ' — done',
+        event.message || 'Stage complete.'
+      );
+      applyStagePayload(stage, event.payload);
+    }
+  }
+
+  function finishFromResult(result) {
+    STATE.primaries = result.primaries || STATE.primaries;
+    STATE.duplicateGroups = result.duplicate_groups || STATE.duplicateGroups;
+    STATE.leadAudit = result.lead_audit || STATE.leadAudit;
+    STATE.classifications = result.classifications || STATE.classifications;
+    STATE.enrichments = result.enrichments || STATE.enrichments;
+    STATE.outreach = result.outreach || STATE.outreach;
+    STATE.qc = result.qc || STATE.qc;
+
+    updateProcessingProgress(6, 'Processing complete', 'Your lead workspace is ready.');
+
+    const totalAccounted = STATE.leadAudit
+      ? STATE.leadAudit.length
+      : STATE.primaries.length;
+
+    const runtime = result.summary ? ` in ${result.summary.runtime_seconds}s` : '';
+
+    log(
+      `Done — ${STATE.primaries.length} primary leads processed${runtime} ` +
+      `(${totalAccounted} total records accounted for, ` +
+      `${STATE.duplicateGroups.length} duplicate group(s) resolved).`
+    );
+
     document.getElementById('resultsSection').style.display = 'block';
     document.getElementById('downloadBtn').disabled = false;
+
+    // Open the All Leads tab by default
+    currentTab = 'all';
+
+    document.querySelectorAll('#workspaceTabs button').forEach(button => {
+      button.classList.toggle(
+        'active',
+        button.dataset.filter === 'all'
+      );
+    });
+
+    // Render the workspace and move away from the processing screen
+    renderWorkspace();
+    showWorkspace();
+  }
+
+  try {
+    // Reads the server-sent-event stream from /api/pipeline/stream.
+    // (EventSource cannot POST, so the stream is consumed manually.)
+    const res = await fetch('/api/pipeline/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(UPLOADED_LEADS ? { leads: UPLOADED_LEADS } : {}),
+    });
+
+    if (!res.ok || !res.body) {
+      let detail = `HTTP ${res.status}`;
+      try {
+        const data = await res.json();
+        if (data && data.error) detail = data.error;
+      } catch { /* non-JSON error page */ }
+      throw new Error(detail);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let finished = false;
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      let idx;
+      while ((idx = buffer.indexOf('\n\n')) !== -1) {
+        const rawEvent = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+
+        const dataLine = rawEvent
+          .split('\n')
+          .find(line => line.startsWith('data:'));
+
+        if (!dataLine) continue;
+
+        let event;
+        try {
+          event = JSON.parse(dataLine.slice(5).trim());
+        } catch {
+          continue;
+        }
+
+        if (event.stage === 'error') {
+          throw new Error(event.message || 'Unknown pipeline error.');
+        }
+
+        handleStageEvent(event);
+
+        if (event.stage === 'done' && event.status === 'done' && event.payload) {
+          finishFromResult(event.payload);
+          finished = true;
+        }
+      }
+    }
+
+    if (!finished) {
+      throw new Error('The pipeline stream ended before the run completed.');
+    }
+
   } catch (err) {
-    log('Pipeline stopped: ' + err.message, true);
-    document.querySelectorAll('.stage').forEach(s => { if (!s.classList.contains('done')) s.classList.add('error'); });
+
+    console.error('Pipeline error:', err);
+
+    document.querySelectorAll('.stage').forEach(s => {
+      if (!s.classList.contains('done')) {
+        s.classList.add('error');
+      }
+    });
+
+    showPipelineError(err && err.message ? err.message : String(err));
+
   } finally {
+
     runBtn.disabled = false;
+
   }
 }
 
@@ -404,123 +1113,703 @@ function renderProblems() {
   });
 }
 
-function renderLedger() {
-  const ledger = document.getElementById('ledger');
-  ledger.innerHTML = '';
+function saveContacted() {
+  localStorage.setItem(
+    'skillcase_contacted_leads',
+    JSON.stringify(contactedLeads)
+  );
+}
 
-  if (currentFilter === 'audit') {
-    const auditRows = STATE.leadAudit || [];
-    if (!auditRows.length) {
-      ledger.innerHTML = '<div style="padding:22px;color:var(--ink-soft);font-size:13.5px;">No audit records available yet. Click "Run pipeline" to audit all 30 inbound records.</div>';
+function showToast(message) {
+  let toast = document.getElementById('skillcaseToast');
+
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'skillcaseToast';
+    toast.className = 'skillcase-toast';
+    document.body.appendChild(toast);
+  }
+
+  toast.textContent = message;
+  toast.classList.add('show');
+
+  clearTimeout(toast._timer);
+
+  toast._timer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 1600);
+}
+
+function auditRecord(id) {
+  return (STATE.leadAudit || []).find(
+    a => a.lead_id === id
+  );
+}
+
+function isRemovedLead(p) {
+  const cls = STATE.classifications[p.lead_id] || {};
+  const audit = auditRecord(p.lead_id);
+
+  if (audit && audit.status === 'merged') {
+    return true;
+  }
+
+  if (
+    cls.relevant === false &&
+    !(audit && audit.requires_human_review)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function needsHumanReview(p) {
+  if (isRemovedLead(p)) {
+    return false;
+  }
+
+  const audit = auditRecord(p.lead_id);
+  const qcFlags = STATE.qc[p.lead_id] || [];
+
+  return Boolean(
+    (audit && audit.requires_human_review) ||
+    qcFlags.length > 0
+  );
+}
+
+function priorityValue(band) {
+  return {
+    High: 3,
+    Medium: 2,
+    Low: 1
+  }[band] || 0;
+}
+
+function getActiveLeads() {
+  return STATE.primaries.filter(p => {
+    const cls = STATE.classifications[p.lead_id] || {};
+
+    return (
+      cls.relevant === true &&
+      !isRemovedLead(p) &&
+      !needsHumanReview(p) &&
+      !contactedLeads[p.lead_id]
+    );
+  });
+}
+
+function getCompletedLeads() {
+  return STATE.primaries.filter(
+    p => Boolean(contactedLeads[p.lead_id])
+  );
+}
+
+function getReviewLeads() {
+  return STATE.primaries.filter(
+    p => needsHumanReview(p)
+  );
+}
+
+function getRemovedLeads() {
+  const removed = [];
+  const seen = new Set();
+
+  // Duplicate records removed during cleaning
+  (STATE.leadAudit || []).forEach(a => {
+    if (
+      a.status === 'merged' &&
+      !seen.has(a.lead_id)
+    ) {
+      seen.add(a.lead_id);
+
+      removed.push({
+        lead_id: a.lead_id,
+        name: a.name || a.lead_id,
+        reason: a.reason || 'Duplicate record',
+        primary_id: a.primary_id || '',
+        status: 'Duplicate'
+      });
+    }
+  });
+
+  // Leads classified as not relevant
+  STATE.primaries.forEach(p => {
+    const cls = STATE.classifications[p.lead_id] || {};
+    const audit = auditRecord(p.lead_id);
+
+    if (
+      cls.relevant === false &&
+      !(audit && audit.requires_human_review) &&
+      !seen.has(p.lead_id)
+    ) {
+      seen.add(p.lead_id);
+
+      removed.push({
+        lead_id: p.lead_id,
+        name: p.name || p.lead_id,
+        reason: cls.reason || 'Not relevant',
+        primary_id: '',
+        status: 'Not Relevant'
+      });
+    }
+  });
+
+  return removed;
+}
+
+function matchesSearch(p) {
+  if (!searchTerm) {
+    return true;
+  }
+
+  const term = searchTerm.toLowerCase();
+
+  return (
+    String(p.lead_id || '')
+      .toLowerCase()
+      .includes(term) ||
+    String(p.name || '')
+      .toLowerCase()
+      .includes(term) ||
+    String(p.city || '')
+      .toLowerCase()
+      .includes(term)
+  );
+}
+
+function sortLeads(rows) {
+  return [...rows].sort((a, b) => {
+    const av = priorityValue(
+      (a.priority || {}).band
+    );
+
+    const bv = priorityValue(
+      (b.priority || {}).band
+    );
+
+    if (av !== bv) {
+      return sortOrder === 'desc'
+        ? bv - av
+        : av - bv;
+    }
+
+    const as =
+      Number((a.priority || {}).score) || 0;
+
+    const bs =
+      Number((b.priority || {}).score) || 0;
+
+    return sortOrder === 'desc'
+      ? bs - as
+      : as - bs;
+  });
+}
+
+function escapeHTML(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function renderLeadRow(p, completed = false) {
+  const enr =
+    STATE.enrichments[p.lead_id] || {};
+
+  const pr =
+    p.priority || { band: 'N/A' };
+
+  const outreach =
+    STATE.outreach[p.lead_id] || '';
+
+  const qcFlags =
+    STATE.qc[p.lead_id] || [];
+
+  const completing = Boolean(completingLeads[p.lead_id]);
+  
+  const row =
+    document.createElement('div');
+
+  row.className = `row${completing ? ' completing' : ''}`;
+
+  const checked = completed || completing
+  ? 'checked disabled'
+  : '';
+
+  row.innerHTML = `
+    <span class="id">
+      ${escapeHTML(p.lead_id)}
+    </span>
+
+    <span class="name">
+      ${escapeHTML(p.name || 'Unnamed lead')}
+    </span>
+
+    <span class="priority-col">
+      <span class="badge ${(pr.band || 'na').toLowerCase()}">
+        ${escapeHTML(pr.band || 'N/A')}
+      </span>
+    </span>
+
+    <label class="contact-checkbox">
+      <input
+        type="checkbox"
+        ${checked}
+        aria-label="Mark ${escapeHTML(p.name || 'lead')} as contacted"
+      >
+      <span>
+        ${completed ? 'Contacted' : 'Mark as contacted'}
+      </span>
+    </label>
+
+    <span class="chev">›</span>
+  `;
+
+  const detail =
+    document.createElement('div');
+
+  detail.className = 'detail';
+
+  const objection =
+    enr.objection || 'None stated';
+
+  const urgency =
+    enr.urgency
+      ? String(enr.urgency)
+          .charAt(0)
+          .toUpperCase() +
+        String(enr.urgency).slice(1)
+      : '—';
+
+  detail.innerHTML = `
+    <div class="detail-grid">
+
+      <div class="detail-item">
+        <h4>Profile</h4>
+        <p>${escapeHTML(enr.profile || '—')}</p>
+      </div>
+
+      <div class="detail-item">
+        <h4>Career goal / intent</h4>
+        <p>${escapeHTML(enr.intent || '—')}</p>
+      </div>
+
+      <div class="detail-item">
+        <h4>Needs</h4>
+        <p>${escapeHTML(enr.need || '—')}</p>
+      </div>
+
+      <div class="detail-item">
+        <h4>Objection / concern</h4>
+        <p>${escapeHTML(objection)}</p>
+      </div>
+
+      <div class="detail-item">
+        <h4>Missing information</h4>
+        <p>${escapeHTML(enr.missing_info || '—')}</p>
+      </div>
+
+      <div class="detail-item">
+        <h4>Opportunity</h4>
+        <p>${escapeHTML(enr.opportunity || '—')}</p>
+      </div>
+
+      <div class="detail-item">
+        <h4>Recommended next step</h4>
+        <p>${escapeHTML(enr.next_action || '—')}</p>
+      </div>
+
+      <div class="detail-item">
+        <h4>Urgency</h4>
+        <p>${escapeHTML(urgency)}</p>
+      </div>
+
+      <div class="detail-item">
+        <h4>Priority score</h4>
+        <p>
+          ${escapeHTML(pr.score ?? '—')}
+          ·
+          ${escapeHTML(pr.band || 'N/A')}
+        </p>
+      </div>
+
+      <div class="detail-item">
+        <h4>Priority reason</h4>
+        <p>${escapeHTML(pr.priority_reason || '—')}</p>
+      </div>
+
+    </div>
+
+    <div class="outreach-box">
+
+      <h4>Personalized outreach</h4>
+
+      <textarea
+        id="outreach-${escapeHTML(p.lead_id)}"
+        placeholder="No outreach draft available."
+      >${escapeHTML(outreach)}</textarea>
+
+      <div class="outreach-actions">
+        <button
+          class="copy-btn copy-outreach"
+          type="button"
+        >
+          Copy
+        </button>
+      </div>
+
+    </div>
+
+    ${
+      qcFlags.length
+        ? `
+          <div class="review-note">
+            Human review note:
+            ${escapeHTML(qcFlags.join(' · '))}
+          </div>
+        `
+        : ''
+    }
+  `;
+
+  const checkbox =
+    row.querySelector('input[type="checkbox"]');
+
+    if (!completed) {
+      checkbox.addEventListener('change', e => {
+        e.stopPropagation();
+    
+        if (!e.target.checked) {
+          return;
+        }
+    
+        completingLeads[p.lead_id] = true;
+    
+        showToast(`${p.name || p.lead_id} moved to Completed`);
+    
+        renderWorkspace();
+    
+        setTimeout(() => {
+          contactedLeads[p.lead_id] = {
+            timestamp: new Date().toISOString()
+          };
+    
+          delete completingLeads[p.lead_id];
+    
+          saveContacted();
+          renderWorkspace();
+        }, 900);
+      });
+    }
+
+  row.addEventListener('click', e => {
+    if (
+      e.target.closest('.contact-checkbox') ||
+      e.target.closest('button') ||
+      e.target.closest('textarea')
+    ) {
       return;
     }
-    auditRows.forEach(a => {
-      const row = document.createElement('div');
-      row.className = 'row';
-      const statusBadge = a.status === 'retained' ? 'yes' : (a.status === 'merged' ? 'ok' : 'flag');
-      const statusLabel = a.status ? a.status.charAt(0).toUpperCase() + a.status.slice(1) : 'Unknown';
-      const relLabel = (a.duplicate_relationship || '').replace('_', ' ');
 
-      row.innerHTML = `
-        <span class="id">${a.lead_id}</span>
-        <span class="name">${a.reason || '—'}<span class="city">${relLabel} &middot; Primary: ${a.primary_id}</span></span>
-        <span class="badge ${statusBadge}">${statusLabel}</span>
-        <span class="badge priority-col ${a.requires_human_review ? 'flag' : 'ok'}">${a.requires_human_review ? 'Review' : 'Auto OK'}</span>
-        <span class="badge ${a.requires_human_review ? 'flag' : 'ok'}">${a.requires_human_review ? 'Needs human' : 'Resolved'}</span>
-        <span class="chev">&rsaquo;</span>
-      `;
-      const detail = document.createElement('div');
-      detail.className = 'detail';
-      detail.innerHTML = `
-        <dl>
-          <dt>Original ID</dt><dd>${a.lead_id}</dd>
-          <dt>Audit status</dt><dd>${statusLabel} (Primary record: ${a.primary_id})</dd>
-          <dt>Relationship</dt><dd>${relLabel}</dd>
-          <dt>Audit note</dt><dd>${a.reason || '—'}</dd>
-          <dt>Human review</dt><dd>${a.requires_human_review ? 'Required — conflicting details kept separate for manual reconciliation.' : 'Not required — clean record or exact duplicate auto-merged.'}</dd>
-        </dl>
-      `;
-      row.addEventListener('click', () => { row.classList.toggle('open'); detail.classList.toggle('open'); });
-      ledger.appendChild(row);
-      ledger.appendChild(detail);
+    row.classList.toggle('open');
+    detail.classList.toggle('open');
+  });
+
+  detail
+    .querySelector('textarea')
+    .addEventListener('click', e => {
+      e.stopPropagation();
     });
+
+    const outreachBox = detail.querySelector('textarea');
+
+    function resizeOutreachBox() {
+      outreachBox.style.height = 'auto';
+      outreachBox.style.height =
+        Math.max(190, outreachBox.scrollHeight) + 'px';
+    }
+    
+    resizeOutreachBox();
+    
+    outreachBox.addEventListener('input', e => {
+      STATE.outreach[p.lead_id] = e.target.value;
+      resizeOutreachBox();
+    });
+
+  detail
+    .querySelector('.copy-outreach')
+    .addEventListener('click', async e => {
+
+      e.stopPropagation();
+
+      const message =
+        detail.querySelector('textarea').value;
+
+      try {
+        await navigator.clipboard
+          .writeText(message);
+
+        e.target.textContent = 'Copied';
+
+        setTimeout(() => {
+          e.target.textContent = 'Copy';
+        }, 1200);
+
+      } catch {
+        e.target.textContent =
+          'Copy failed';
+
+        setTimeout(() => {
+          e.target.textContent = 'Copy';
+        }, 1200);
+      }
+    });
+
+  return {
+    row,
+    detail
+  };
+}
+
+function renderRemovedRows() {
+  const ledger =
+    document.getElementById('ledger');
+
+  const removed =
+    getRemovedLeads().filter(r => {
+
+      if (!searchTerm) {
+        return true;
+      }
+
+      const term =
+        searchTerm.toLowerCase();
+
+      return (
+        String(r.lead_id)
+          .toLowerCase()
+          .includes(term) ||
+        String(r.name || '')
+          .toLowerCase()
+          .includes(term)
+      );
+    });
+
+  if (!removed.length) {
+    ledger.innerHTML =
+      '<div class="empty-state">No removed leads.</div>';
+
     return;
   }
 
-  let rows = STATE.primaries;
-  if (currentFilter === 'relevant') rows = rows.filter(p => STATE.classifications[p.lead_id]?.relevant);
-  if (currentFilter === 'high') rows = rows.filter(p => p.priority && p.priority.band === 'High');
-  if (currentFilter === 'review') rows = rows.filter(p => (STATE.qc[p.lead_id]||[]).length > 0);
+  removed.forEach(r => {
 
-  rows.forEach(p => {
-    const cls = STATE.classifications[p.lead_id] || {};
-    const enr = STATE.enrichments[p.lead_id] || {};
-    const outreach = STATE.outreach[p.lead_id];
-    const qcFlags = STATE.qc[p.lead_id] || [];
-    const pr = p.priority || { band: 'N/A' };
+    const row =
+      document.createElement('div');
 
-    const objCat = (enr.objection_category && enr.objection_category !== 'none') ? enr.objection_category : '';
-    const objSev = (enr.objection_severity && enr.objection_severity !== 'none') ? enr.objection_severity : '';
-    let objMeta = '';
-    if (objCat) {
-      objMeta = ` (${objCat}${objSev ? ' · ' + objSev : ''})`;
-    } else if (objSev) {
-      objMeta = ` (${objSev})`;
-    }
-
-    let dupDetail = '';
-    if ((p._dup_exact && p._dup_exact.length > 0) || (p._dup_fuzzy && p._dup_fuzzy.length > 0)) {
-      const parts = [];
-      if (p._dup_exact && p._dup_exact.length > 0) parts.push(`Merged duplicates: ${p._dup_exact.join(', ')}`);
-      if (p._dup_fuzzy && p._dup_fuzzy.length > 0) parts.push(`Conflicting duplicates: ${p._dup_fuzzy.join(', ')} (flagged for review)`);
-      dupDetail = `<dt>Duplicates</dt><dd>${parts.join(' | ')}</dd>`;
-    }
-
-    const urgencyFormatted = enr.urgency ? enr.urgency.charAt(0).toUpperCase() + enr.urgency.slice(1) : '—';
-
-    const row = document.createElement('div');
     row.className = 'row';
+
     row.innerHTML = `
-      <span class="id">${p.lead_id}${p.duplicate_count ? ' (+' + p.duplicate_count + ')' : ''}</span>
-      <span class="name">${p.name}<span class="city">${p.city || '—'}</span></span>
-      <span class="badge ${cls.relevant ? 'yes' : 'no'}">${cls.relevant ? 'Relevant' : 'Not relevant'}</span>
-      <span class="badge priority-col ${(pr.band || 'na').toLowerCase()}">${pr.band || 'N/A'}</span>
-      <span class="badge ${qcFlags.length ? 'flag' : 'ok'}">${qcFlags.length ? qcFlags.length + ' flag' + (qcFlags.length>1?'s':'') : 'clear'}</span>
-      <span class="chev">&rsaquo;</span>
+      <span class="id">
+        ${escapeHTML(r.lead_id)}
+      </span>
+
+      <span class="name">
+        ${escapeHTML(r.name || 'Unnamed lead')}
+        <span class="city">
+          ${escapeHTML(r.reason)}
+        </span>
+      </span>
+
+      <span class="priority-col">
+        <span class="badge no">
+          ${escapeHTML(r.status)}
+        </span>
+      </span>
+
+      <span></span>
+
+      <span class="chev">›</span>
     `;
-    const detail = document.createElement('div');
+
+    const detail =
+      document.createElement('div');
+
     detail.className = 'detail';
+
     detail.innerHTML = `
-      <dl>
-        <dt>Reason</dt><dd>${cls.reason || '—'} (confidence ${cls.confidence ?? '—'})</dd>
-        <dt>Urgency</dt><dd>${urgencyFormatted}</dd>
-        <dt>Intent</dt><dd>${enr.intent || '—'}</dd>
-        <dt>Profile</dt><dd>${enr.profile || '—'}</dd>
-        <dt>Need</dt><dd>${enr.need || '—'}</dd>
-        <dt>Objection</dt><dd>${enr.objection || 'None stated'}${objMeta}</dd>
-        <dt>Missing info</dt><dd>${enr.missing_info || '—'}</dd>
-        <dt>Opportunity</dt><dd>${enr.opportunity || '—'}</dd>
-        <dt>Next action</dt><dd>${enr.next_action || '—'}</dd>
-        <dt>Priority score</dt><dd>${pr.score ?? 'N/A'} (${pr.band || 'N/A'})</dd>
-        <dt>Priority reason</dt><dd>${pr.priority_reason || '—'}</dd>
-        ${dupDetail}
-      </dl>
-      ${outreach ? `<div class="outreach">${outreach}</div>` : ''}
-      ${qcFlags.map(f => `<div class="qcnote">&#9873; ${f}</div>`).join('')}
+      <div class="detail-grid">
+
+        <div class="detail-item">
+          <h4>Lead ID</h4>
+          <p>${escapeHTML(r.lead_id)}</p>
+        </div>
+
+        <div class="detail-item">
+          <h4>Status</h4>
+          <p>${escapeHTML(r.status)}</p>
+        </div>
+
+        <div class="detail-item detail-full">
+          <h4>Reason for removal</h4>
+          <p>${escapeHTML(r.reason)}</p>
+        </div>
+
+        ${
+          r.primary_id
+            ? `
+              <div class="detail-item">
+                <h4>Retained primary</h4>
+                <p>${escapeHTML(r.primary_id)}</p>
+              </div>
+            `
+            : ''
+        }
+
+      </div>
     `;
-    row.addEventListener('click', () => { row.classList.toggle('open'); detail.classList.toggle('open'); });
+
+    row.addEventListener('click', () => {
+      row.classList.toggle('open');
+      detail.classList.toggle('open');
+    });
+
     ledger.appendChild(row);
     ledger.appendChild(detail);
   });
 }
 
-document.getElementById('filterbar').addEventListener('click', (e) => {
-  if (e.target.tagName !== 'BUTTON') return;
-  document.querySelectorAll('#filterbar button').forEach(b => b.classList.remove('active'));
-  e.target.classList.add('active');
-  currentFilter = e.target.dataset.filter;
-  renderLedger();
-});
+function renderWorkspace() {
+  const ledger =
+    document.getElementById('ledger');
+
+  ledger.innerHTML = '';
+
+  if (currentTab === 'removed') {
+    renderRemovedRows();
+    return;
+  }
+
+  let rows;
+
+  if (currentTab === 'completed') {
+    rows = getCompletedLeads();
+  } else if (currentTab === 'review') {
+    rows = getReviewLeads();
+  } else {
+    rows = getActiveLeads();
+  }
+
+  rows = rows.filter(matchesSearch);
+
+  if (
+    currentTab === 'all' &&
+    priorityFilter !== 'all'
+  ) {
+    rows = rows.filter(
+      p =>
+        (p.priority || {}).band ===
+        priorityFilter
+    );
+  }
+
+  rows = sortLeads(rows);
+
+  if (!rows.length) {
+
+    let message =
+      'No active leads match these filters.';
+
+    if (currentTab === 'review') {
+      message =
+        'No leads currently require human review.';
+    }
+
+    if (currentTab === 'completed') {
+      message =
+        'No leads have been marked as contacted.';
+    }
+
+    if (currentTab === 'removed') {
+      message =
+        'No removed leads.';
+    }
+
+    ledger.innerHTML =
+      `<div class="empty-state">${message}</div>`;
+
+    return;
+  }
+
+  rows.forEach(p => {
+
+    const rendered =
+      renderLeadRow(
+        p,
+        currentTab === 'completed'
+      );
+
+    ledger.appendChild(rendered.row);
+    ledger.appendChild(rendered.detail);
+
+  });
+}
+
+document
+  .getElementById('workspaceTabs')
+  .addEventListener('click', e => {
+
+    const button =
+      e.target.closest('button');
+
+    if (!button) return;
+
+    document
+      .querySelectorAll('#workspaceTabs button')
+      .forEach(b =>
+        b.classList.remove('active')
+      );
+
+    button.classList.add('active');
+
+    currentTab =
+      button.dataset.filter;
+
+    renderWorkspace();
+  });
+
+  document
+  .getElementById('leadSearch')
+  .addEventListener('input', e => {
+
+    searchTerm =
+      e.target.value.trim().toLowerCase();
+
+    renderWorkspace();
+  });
+
+  document
+  .getElementById('priorityFilter')
+  .addEventListener('change', e => {
+
+    priorityFilter =
+      e.target.value === 'all'
+        ? 'all'
+        : e.target.value.charAt(0).toUpperCase() +
+          e.target.value.slice(1);
+
+    renderWorkspace();
+  });
+
+document
+  .getElementById('prioritySort')
+  .addEventListener('change', e => {
+    sortOrder = e.target.value;
+    renderWorkspace();
+  });
 
 function toCSV() {
   const headers = ['Lead','Name','Relevant','Reason','Confidence','Urgency','Intent','Profile','Need','Objection','Objection Severity','Missing Information','Priority','Priority Reason','Next Action','Outreach','QC Flags'];
@@ -541,6 +1830,29 @@ function toCSV() {
   });
   return lines.join('\n');
 }
+let skillcaseGlobe = null;
+
+function showProcessingScreen() {
+  document.getElementById('uploadScreen').style.display = 'none';
+  document.getElementById('workspaceScreen').style.display = 'none';
+  document.getElementById('processingScreen').style.display = 'flex';
+
+  requestAnimationFrame(() => {
+    if (!skillcaseGlobe && window.createSkillcaseGlobe) {
+      skillcaseGlobe = window.createSkillcaseGlobe();
+    }
+  });
+}
+
+function showWorkspace() {
+  document.getElementById('processingScreen').style.display = 'none';
+  document.getElementById('workspaceScreen').style.display = 'block';
+
+  if (skillcaseGlobe) {
+    skillcaseGlobe.destroy();
+    skillcaseGlobe = null;
+  }
+}
 
 document.getElementById('runBtn').addEventListener('click', runPipeline);
 document.getElementById('downloadBtn').addEventListener('click', () => {
@@ -551,6 +1863,7 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 });
+
 </script>
 </body>
 </html>
