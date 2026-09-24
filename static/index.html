@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skillcase Lead Manifest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1B2622; --ink-soft: #52615A; --ink-faint: #8B978F;
+    --paper: #ECEFE7; --paper-raised: #F7F8F3; --line: #CBD1C3; --line-strong: #A8B0A0;
+    --teal: #2F6F63; --teal-soft: #E1EBE6; --gold: #A9781F; --gold-soft: #F2E8D2;
+    --rust: #A14A31; --rust-soft: #F3E1D9;
+    --font-display: 'Newsreader', Georgia, 'Times New Roman', serif;
+    --font-body: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #E9ECE5; --ink-soft: #B9C2B7; --ink-faint: #7C877E;
+      --paper: #141815; --paper-raised: #1C221D; --line: #313A32; --line-strong: #45503F;
+      --teal: #7FBBA9; --teal-soft: #1D2E28; --gold: #D7B268; --gold-soft: #2E271A;
+      --rust: #E08165; --rust-soft: #33221C;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 40px 24px 80px; }
+  header.masthead { border-bottom: 1px solid var(--line-strong); padding-bottom: 22px; margin-bottom: 28px; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+  header.masthead h1 { font-family: var(--font-display); font-weight: 500; font-size: 34px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header.masthead p.sub { margin: 0; color: var(--ink-soft); max-width: 46ch; font-size: 14.5px; }
+  .manifest-no { font-family: var(--font-display); font-style: italic; color: var(--ink-faint); font-size: 14px; white-space: nowrap; }
+
+  .pipeline { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; margin: 28px 0 8px; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; background: var(--paper-raised); }
+  .stage { padding: 14px 10px; text-align: center; border-right: 1px solid var(--line); }
+  .stage:last-child { border-right: none; }
+  .stage .n { font-family: var(--font-display); font-size: 20px; color: var(--ink-faint); display: block; margin-bottom: 3px; }
+  .stage .label { font-size: 11.5px; color: var(--ink-soft); }
+  .stage.active { background: var(--teal-soft); }
+  .stage.active .n { color: var(--teal); }
+  .stage.done { background: var(--teal-soft); }
+  .stage.done .n::after { content: " \2713"; }
+  .stage.done .n, .stage.done .label { color: var(--teal); }
+  .stage.error { background: var(--rust-soft); }
+  .stage.error .n, .stage.error .label { color: var(--rust); }
+
+  .controls { display: flex; align-items: center; gap: 14px; margin: 18px 0 30px; flex-wrap: wrap; }
+  button { font-family: var(--font-body); font-weight: 600; font-size: 14px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); padding: 11px 20px; border-radius: 3px; cursor: pointer; }
+  button:disabled { opacity: 0.45; cursor: default; }
+  button.secondary { background: transparent; color: var(--ink); border-color: var(--line-strong); font-weight: 500; }
+  .runlog { font-size: 13px; color: var(--ink-soft); min-height: 20px; }
+  .runlog.err { color: var(--rust); }
+
+  section.block { margin: 44px 0; }
+  section.block > h2 { font-family: var(--font-display); font-weight: 500; font-size: 21px; margin: 0 0 6px; }
+  section.block > p.desc { margin: 0 0 18px; color: var(--ink-soft); font-size: 14px; max-width: 68ch; }
+
+  .formula { background: var(--paper-raised); border: 1px solid var(--line); border-radius: 3px; padding: 16px 18px; font-size: 13.5px; color: var(--ink-soft); }
+  .formula code { color: var(--ink); font-weight: 600; }
+  .formula ul { margin: 8px 0 0; padding-left: 18px; }
+  .formula li { margin: 3px 0; }
+
+  .ledger { border-top: 1px solid var(--line-strong); }
+  .row { border-bottom: 1px solid var(--line); padding: 13px 4px; display: grid; grid-template-columns: 52px 1.4fr 90px 100px 90px 24px; align-items: center; gap: 10px; cursor: pointer; }
+  .row:hover { background: var(--paper-raised); }
+  .row .id { font-size: 12.5px; color: var(--ink-faint); }
+  .row .name { font-weight: 600; }
+  .row .name .city { display: block; font-weight: 400; font-size: 12.5px; color: var(--ink-soft); }
+  .badge { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 20px; text-align: center; white-space: nowrap; }
+  .badge.yes { background: var(--teal-soft); color: var(--teal); }
+  .badge.no { background: var(--line); color: var(--ink-soft); }
+  .badge.high { background: var(--gold-soft); color: var(--gold); }
+  .badge.medium { background: var(--teal-soft); color: var(--teal); }
+  .badge.low { background: var(--line); color: var(--ink-soft); }
+  .badge.na { background: var(--line); color: var(--ink-faint); }
+  .badge.flag { background: var(--rust-soft); color: var(--rust); }
+  .badge.ok { background: var(--paper); color: var(--ink-faint); border: 1px solid var(--line); }
+  .chev { color: var(--ink-faint); text-align: right; transition: transform 0.15s ease; }
+  .row.open .chev { transform: rotate(90deg); }
+
+  .detail { display: none; padding: 4px 4px 22px 62px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .detail.open { display: block; }
+  .detail dl { margin: 0; display: grid; grid-template-columns: 130px 1fr; gap: 7px 14px; }
+  .detail dt { color: var(--ink-faint); }
+  .detail dd { margin: 0; color: var(--ink); }
+  .detail .outreach { margin-top: 14px; background: var(--paper-raised); border-left: 2px solid var(--teal); padding: 12px 14px; font-family: var(--font-display); font-style: italic; font-size: 14.5px; color: var(--ink); }
+  .detail .qcnote { margin-top: 10px; font-size: 12.5px; color: var(--rust); }
+
+  .problem { border: 1px solid var(--line); border-left: 3px solid var(--rust); border-radius: 0 3px 3px 0; padding: 14px 16px; margin-bottom: 12px; background: var(--paper-raised); }
+  .problem h3 { margin: 0 0 5px; font-size: 14.5px; font-family: var(--font-body); }
+  .problem p { margin: 0; font-size: 13.5px; color: var(--ink-soft); }
+
+  .filterbar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .filterbar button { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); font-weight: 500; font-size: 12.5px; padding: 6px 13px; }
+  .filterbar button.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--ink-faint); }
+
+  @media (max-width: 640px) {
+    .pipeline { grid-template-columns: repeat(3, 1fr); }
+    .row { grid-template-columns: 40px 1fr 70px 24px; }
+    .row .priority-col { display: none; }
+    .detail { padding-left: 30px; }
+    .detail dl { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <div>
+      <h1>Skillcase Lead Manifest</h1>
+      <p class="sub">Turns 30 raw inbound conversations into a triaged, prioritized outreach list — cleaned, classified, enriched and reviewed automatically.</p>
+    </div>
+    <div class="manifest-no" id="recordCount">30 records logged (sample)</div>
+  </header>
+
+  <div class="pipeline" id="pipeline">
+    <div class="stage" data-stage="clean"><span class="n">1</span><span class="label">Clean &amp; dedupe</span></div>
+    <div class="stage" data-stage="classify"><span class="n">2</span><span class="label">Classify</span></div>
+    <div class="stage" data-stage="enrich"><span class="n">3</span><span class="label">Enrich</span></div>
+    <div class="stage" data-stage="prioritize"><span class="n">4</span><span class="label">Prioritize</span></div>
+    <div class="stage" data-stage="outreach"><span class="n">5</span><span class="label">Outreach</span></div>
+    <div class="stage" data-stage="qc"><span class="n">6</span><span class="label">QC review</span></div>
+  </div>
+
+  <section class="block" style="margin-top:0;">
+    <h2>Load your leads</h2>
+    <p class="desc">Upload a CSV export of your own lead sheet, or run the pipeline on the bundled 30-lead sample dataset.</p>
+    <div class="controls" style="margin-bottom:0;">
+      <label class="secondary" style="display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-strong);padding:11px 20px;border-radius:3px;cursor:pointer;font-weight:500;font-size:14px;">
+        Upload CSV
+        <input id="csvInput" type="file" accept=".csv" style="display:none;">
+      </label>
+      <button id="useSampleBtn" class="secondary">Use sample dataset</button>
+      <span class="runlog" id="loadStatus">No file loaded yet — sample dataset will be used.</span>
+    </div>
+  </section>
+
+  <div class="controls">
+    <button id="runBtn">Run pipeline</button>
+    <button id="downloadBtn" class="secondary" disabled>Download CSV</button>
+    <span class="runlog" id="runlog"></span>
+  </div>
+
+  <section class="block" id="problemsSection" style="display:none;">
+    <h2>What the pipeline flagged on its own</h2>
+    <p class="desc">Real problems in this dataset that the system caught rather than silently guessing through.</p>
+    <div id="problemsList"></div>
+  </section>
+
+  <section class="block" id="resultsSection" style="display:none;">
+    <h2>Lead ledger</h2>
+    <p class="desc">Click any row for the full enrichment and outreach draft. Duplicates are collapsed into their primary record.</p>
+    <div class="filterbar" id="filterbar">
+      <button data-filter="all" class="active">All</button>
+      <button data-filter="relevant">Relevant</button>
+      <button data-filter="high">High priority</button>
+      <button data-filter="review">Needs review</button>
+      <button data-filter="audit">Audit (All 30 Leads)</button>
+    </div>
+    <div class="ledger" id="ledger"></div>
+  </section>
+
+  <section class="block">
+    <h2>How priority is scored</h2>
+    <p class="desc">Kept rule-based and visible on purpose — a salesperson should be able to see exactly why a lead outranks another, not trust a black-box number.</p>
+    <div class="formula">
+      Score = <code>(German level &times; 2)</code> + <code>min(experience years, 5)</code> + <code>source bonus</code> + <code>urgency bonus</code> &minus; <code>(objection base &times; severity multiplier)</code>
+      <ul>
+        <li><strong>German proficiency:</strong> B2 = +6 points, B1 = +4 points, A2 = +2 points, A1 / None = +0 points.</li>
+        <li><strong>Experience:</strong> +1 point per year of relevant experience, capped at 5 points maximum.</li>
+        <li><strong>Source bonus:</strong> Referral +1 point, WhatsApp +0.5 points.</li>
+        <li><strong>AI-derived urgency:</strong> High +2 points (requesting call/immediate timeline), Medium +1 point (interested without timeline), Low +0 points (early exploration).</li>
+        <li><strong>Objection category &amp; severity penalty:</strong> Objection base &times; severity multiplier.
+          <ul>
+            <li>Base penalties: Price &minus;2.0, Qualification &minus;1.5, Eligibility &minus;1.5, Confidence &minus;1.0, Timeline &minus;0.5, None 0.</li>
+            <li>Severity multipliers: Strong &times;1.5, Moderate &times;1.0, Mild &times;0.5, None &times;0 (defaults to Moderate if severity is missing or invalid for a stated objection).</li>
+          </ul>
+        </li>
+        <li><strong>Priority bands:</strong> <strong>High</strong> (&ge; 8) &middot; <strong>Medium</strong> (4&ndash;7.9) &middot; <strong>Low</strong> (&lt; 4). Leads classified as not relevant are excluded from scoring.</li>
+        <li><strong>Quality control separation:</strong> Classification confidence is intentionally <em>excluded</em> from priority score calculations and is reserved strictly for QC review routing (flagging confidence &lt; 0.6 for human review).</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    Classification, enrichment and outreach drafting are generated by Gemini at run time, through this app's own server &mdash; nothing here is pre-written. Rule-based steps (cleaning, deduplication, priority scoring, contradiction checks) run identically every time.
+  </footer>
+</div>
+
+<script>
+let STATE = { primaries: [], duplicateGroups: [], leadAudit: [], classifications: {}, enrichments: {}, outreach: {}, qc: {} };
+let currentFilter = 'all';
+let UPLOADED_LEADS = null; // null = use bundled sample dataset
+
+// --- CSV upload: tolerant of header naming/order differences ---
+const FIELD_ALIASES = {
+  lead_id: ['lead_id','leadid','id'],
+  name: ['name','full_name','fullname','lead_name'],
+  phone: ['phone','phone_number','mobile','contact','contact_number'],
+  email: ['email','email_address'],
+  city: ['city','location'],
+  education: ['education','qualification','degree'],
+  experience: ['experience','experience_years','years_experience','yrs_experience'],
+  goal: ['goal','intent','target','objective'],
+  german_level: ['german_level','german','language_level','level'],
+  source: ['source','channel','lead_source'],
+  last_contacted: ['last_contacted','last_contact','date','contacted_on'],
+  conversation: ['conversation','message','chat','notes_conversation','transcript'],
+  notes: ['notes','remarks','comment','comments'],
+};
+function normalizeHeader(h) { return h.toLowerCase().replace(/[^a-z0-9]/g, ''); }
+function buildHeaderMap(headers) {
+  const map = {};
+  const normHeaders = headers.map(normalizeHeader);
+  Object.entries(FIELD_ALIASES).forEach(([field, aliases]) => {
+    const normAliases = aliases.map(normalizeHeader);
+    const idx = normHeaders.findIndex(h => normAliases.includes(h));
+    if (idx !== -1) map[field] = idx;
+  });
+  return map;
+}
+function parseCSVText(text) {
+  // Minimal RFC4126-ish CSV parser: handles quoted fields with embedded commas/newlines/escaped quotes.
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i], next = text[i+1];
+    if (inQuotes) {
+      if (c === '"' && next === '"') { field += '"'; i++; }
+      else if (c === '"') { inQuotes = false; }
+      else field += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && next === '\n') i++;
+        row.push(field); field = '';
+        if (row.some(v => v !== '')) rows.push(row);
+        row = [];
+      } else field += c;
+    }
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  if (rows.length < 2) return [];
+  const headers = rows[0];
+  const map = buildHeaderMap(headers);
+  return rows.slice(1).map((r, i) => {
+    const obj = {};
+    Object.entries(map).forEach(([field, idx]) => { obj[field] = (r[idx] ?? '').trim(); });
+    if (!obj.lead_id) obj.lead_id = 'L' + String(i + 1).padStart(3, '0');
+    return obj;
+  });
+}
+
+document.getElementById('csvInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const parsed = parseCSVText(text);
+  const status = document.getElementById('loadStatus');
+  if (!parsed.length) {
+    status.textContent = 'Could not read any rows from that file — check it has a header row.';
+    status.classList.add('err');
+    return;
+  }
+  UPLOADED_LEADS = parsed;
+  status.classList.remove('err');
+  status.textContent = `Loaded ${parsed.length} leads from "${file.name}". Click "Run pipeline" to process them.`;
+  document.getElementById('recordCount').textContent = `${parsed.length} records logged (uploaded)`;
+});
+document.getElementById('useSampleBtn').addEventListener('click', () => {
+  UPLOADED_LEADS = null;
+  document.getElementById('csvInput').value = '';
+  const status = document.getElementById('loadStatus');
+  status.classList.remove('err');
+  status.textContent = 'Using the bundled 30-lead sample dataset.';
+  document.getElementById('recordCount').textContent = '30 records logged (sample)';
+});
+
+function setStage(name, status) {
+  const el = document.querySelector(`.stage[data-stage="${name}"]`);
+  el.classList.remove('active', 'done', 'error');
+  if (status) el.classList.add(status);
+}
+function log(msg, isErr) {
+  const el = document.getElementById('runlog');
+  el.textContent = msg;
+  el.classList.toggle('err', !!isErr);
+}
+async function postJSON(url, body) {
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`${url} failed (${res.status}): ${text.slice(0, 200)}`);
+  }
+  return res.json();
+}
+
+async function runPipeline() {
+  const runBtn = document.getElementById('runBtn');
+  runBtn.disabled = true;
+  document.getElementById('downloadBtn').disabled = true;
+  ['clean','classify','enrich','prioritize','outreach','qc'].forEach(s => setStage(s, null));
+
+  try {
+    setStage('clean', 'active');
+    log('Normalizing fields and grouping duplicates…');
+    const cleanResult = await postJSON('/api/pipeline/clean', UPLOADED_LEADS ? { leads: UPLOADED_LEADS } : {});
+    STATE.primaries = cleanResult.primaries || [];
+    STATE.duplicateGroups = cleanResult.duplicate_groups || [];
+    STATE.leadAudit = cleanResult.lead_audit || [];
+    setStage('clean', 'done');
+
+    setStage('classify', 'active');
+    log(`Asking Gemini to judge relevance for ${STATE.primaries.length} leads…`);
+    STATE.classifications = await postJSON('/api/pipeline/classify', { leads: STATE.primaries });
+    setStage('classify', 'done');
+
+    setStage('enrich', 'active');
+    log('Extracting profile, intent, needs, urgency and objections…');
+    STATE.enrichments = await postJSON('/api/pipeline/enrich', { leads: STATE.primaries });
+    setStage('enrich', 'done');
+
+    setStage('prioritize', 'active');
+    log('Scoring priority with a fixed rule-based formula…');
+    const priorities = await postJSON('/api/pipeline/prioritize', {
+      leads: STATE.primaries, classifications: STATE.classifications, enrichments: STATE.enrichments
+    });
+    STATE.primaries.forEach(p => { p.priority = priorities[p.lead_id]; });
+    setStage('prioritize', 'done');
+
+    setStage('outreach', 'active');
+    const relevant = STATE.primaries.filter(p => STATE.classifications[p.lead_id]?.relevant);
+    log(`Drafting personalized outreach for ${relevant.length} relevant leads…`);
+    const items = relevant.map(p => ({ lead: p, enrichment: STATE.enrichments[p.lead_id] || {} }));
+    STATE.outreach = await postJSON('/api/pipeline/outreach', { items });
+    setStage('outreach', 'done');
+
+    setStage('qc', 'active');
+    log('Running rule-based contradiction and quality checks…');
+    STATE.qc = await postJSON('/api/pipeline/qc', {
+      leads: STATE.primaries, classifications: STATE.classifications,
+      enrichments: STATE.enrichments, outreach: STATE.outreach
+    });
+    setStage('qc', 'done');
+
+    const totalAccounted = STATE.leadAudit ? STATE.leadAudit.length : STATE.primaries.length;
+    log(`Done — ${STATE.primaries.length} primary leads processed (${totalAccounted} total records accounted for, ${STATE.duplicateGroups.length} duplicate group(s) resolved).`);
+    renderProblems();
+    renderLedger();
+    document.getElementById('problemsSection').style.display = 'block';
+    document.getElementById('resultsSection').style.display = 'block';
+    document.getElementById('downloadBtn').disabled = false;
+  } catch (err) {
+    log('Pipeline stopped: ' + err.message, true);
+    document.querySelectorAll('.stage').forEach(s => { if (!s.classList.contains('done')) s.classList.add('error'); });
+  } finally {
+    runBtn.disabled = false;
+  }
+}
+
+function renderProblems() {
+  const list = document.getElementById('problemsList');
+  list.innerHTML = '';
+  const problems = [];
+
+  const bigDup = STATE.duplicateGroups.find(g => g.all.length >= 3) || STATE.duplicateGroups[0];
+  if (bigDup) {
+    problems.push({
+      title: `Duplicate cluster: ${bigDup.all.join(', ')}`,
+      body: `Same phone number across ${bigDup.all.length} records. ${bigDup.exact.length ? bigDup.exact.join(', ') + ' matched exactly and were auto-merged into ' + bigDup.primary + '.' : ''} ${bigDup.fuzzy.length ? bigDup.fuzzy.join(', ') + ' shared the phone/email but had conflicting details — kept out of auto-merge and flagged for a human to reconcile rather than guessed.' : ''}`
+    });
+  }
+  const missingLead = STATE.primaries.find(p => p.missing_fields && p.missing_fields.length > 0);
+  if (missingLead) {
+    problems.push({
+      title: `Missing field before contact: ${missingLead.lead_id}`,
+      body: `${missingLead.name} is missing ${missingLead.missing_fields.join(', ')}. The classifier still returned a judgment, but confidence and the "missing info" field reflect the gap rather than pretending it isn't there.`
+    });
+  }
+  const ambiguous = Object.values(STATE.classifications).sort((a,b) => (a.confidence??1) - (b.confidence??1))[0];
+  if (ambiguous) {
+    const lead = STATE.primaries.find(p => p.lead_id === ambiguous.lead_id);
+    problems.push({
+      title: `Lowest-confidence call: ${ambiguous.lead_id} (${ambiguous.confidence})`,
+      body: `${lead ? lead.name : ambiguous.lead_id} — "${ambiguous.reason}". Routed into the "Needs review" filter below so a person makes the final call on genuinely borderline leads.`
+    });
+  }
+  const overpromiseId = Object.keys(STATE.qc).find(id => (STATE.qc[id]||[]).some(f => f.includes('guarantee')));
+  if (overpromiseId) {
+    problems.push({
+      title: `Outreach self-correction caught: ${overpromiseId}`,
+      body: `The drafted outreach message used the word "guarantee" for a lead explicitly worried about unrealistic promises. The QC pass flagged it for a rewrite before it could go out.`
+    });
+  }
+  problems.slice(0, 4).forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'problem';
+    div.innerHTML = `<h3>${p.title}</h3><p>${p.body}</p>`;
+    list.appendChild(div);
+  });
+}
+
+function renderLedger() {
+  const ledger = document.getElementById('ledger');
+  ledger.innerHTML = '';
+
+  if (currentFilter === 'audit') {
+    const auditRows = STATE.leadAudit || [];
+    if (!auditRows.length) {
+      ledger.innerHTML = '<div style="padding:22px;color:var(--ink-soft);font-size:13.5px;">No audit records available yet. Click "Run pipeline" to audit all 30 inbound records.</div>';
+      return;
+    }
+    auditRows.forEach(a => {
+      const row = document.createElement('div');
+      row.className = 'row';
+      const statusBadge = a.status === 'retained' ? 'yes' : (a.status === 'merged' ? 'ok' : 'flag');
+      const statusLabel = a.status ? a.status.charAt(0).toUpperCase() + a.status.slice(1) : 'Unknown';
+      const relLabel = (a.duplicate_relationship || '').replace('_', ' ');
+
+      row.innerHTML = `
+        <span class="id">${a.lead_id}</span>
+        <span class="name">${a.reason || '—'}<span class="city">${relLabel} &middot; Primary: ${a.primary_id}</span></span>
+        <span class="badge ${statusBadge}">${statusLabel}</span>
+        <span class="badge priority-col ${a.requires_human_review ? 'flag' : 'ok'}">${a.requires_human_review ? 'Review' : 'Auto OK'}</span>
+        <span class="badge ${a.requires_human_review ? 'flag' : 'ok'}">${a.requires_human_review ? 'Needs human' : 'Resolved'}</span>
+        <span class="chev">&rsaquo;</span>
+      `;
+      const detail = document.createElement('div');
+      detail.className = 'detail';
+      detail.innerHTML = `
+        <dl>
+          <dt>Original ID</dt><dd>${a.lead_id}</dd>
+          <dt>Audit status</dt><dd>${statusLabel} (Primary record: ${a.primary_id})</dd>
+          <dt>Relationship</dt><dd>${relLabel}</dd>
+          <dt>Audit note</dt><dd>${a.reason || '—'}</dd>
+          <dt>Human review</dt><dd>${a.requires_human_review ? 'Required — conflicting details kept separate for manual reconciliation.' : 'Not required — clean record or exact duplicate auto-merged.'}</dd>
+        </dl>
+      `;
+      row.addEventListener('click', () => { row.classList.toggle('open'); detail.classList.toggle('open'); });
+      ledger.appendChild(row);
+      ledger.appendChild(detail);
+    });
+    return;
+  }
+
+  let rows = STATE.primaries;
+  if (currentFilter === 'relevant') rows = rows.filter(p => STATE.classifications[p.lead_id]?.relevant);
+  if (currentFilter === 'high') rows = rows.filter(p => p.priority && p.priority.band === 'High');
+  if (currentFilter === 'review') rows = rows.filter(p => (STATE.qc[p.lead_id]||[]).length > 0);
+
+  rows.forEach(p => {
+    const cls = STATE.classifications[p.lead_id] || {};
+    const enr = STATE.enrichments[p.lead_id] || {};
+    const outreach = STATE.outreach[p.lead_id];
+    const qcFlags = STATE.qc[p.lead_id] || [];
+    const pr = p.priority || { band: 'N/A' };
+
+    const objCat = (enr.objection_category && enr.objection_category !== 'none') ? enr.objection_category : '';
+    const objSev = (enr.objection_severity && enr.objection_severity !== 'none') ? enr.objection_severity : '';
+    let objMeta = '';
+    if (objCat) {
+      objMeta = ` (${objCat}${objSev ? ' · ' + objSev : ''})`;
+    } else if (objSev) {
+      objMeta = ` (${objSev})`;
+    }
+
+    let dupDetail = '';
+    if ((p._dup_exact && p._dup_exact.length > 0) || (p._dup_fuzzy && p._dup_fuzzy.length > 0)) {
+      const parts = [];
+      if (p._dup_exact && p._dup_exact.length > 0) parts.push(`Merged duplicates: ${p._dup_exact.join(', ')}`);
+      if (p._dup_fuzzy && p._dup_fuzzy.length > 0) parts.push(`Conflicting duplicates: ${p._dup_fuzzy.join(', ')} (flagged for review)`);
+      dupDetail = `<dt>Duplicates</dt><dd>${parts.join(' | ')}</dd>`;
+    }
+
+    const urgencyFormatted = enr.urgency ? enr.urgency.charAt(0).toUpperCase() + enr.urgency.slice(1) : '—';
+
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `
+      <span class="id">${p.lead_id}${p.duplicate_count ? ' (+' + p.duplicate_count + ')' : ''}</span>
+      <span class="name">${p.name}<span class="city">${p.city || '—'}</span></span>
+      <span class="badge ${cls.relevant ? 'yes' : 'no'}">${cls.relevant ? 'Relevant' : 'Not relevant'}</span>
+      <span class="badge priority-col ${(pr.band || 'na').toLowerCase()}">${pr.band || 'N/A'}</span>
+      <span class="badge ${qcFlags.length ? 'flag' : 'ok'}">${qcFlags.length ? qcFlags.length + ' flag' + (qcFlags.length>1?'s':'') : 'clear'}</span>
+      <span class="chev">&rsaquo;</span>
+    `;
+    const detail = document.createElement('div');
+    detail.className = 'detail';
+    detail.innerHTML = `
+      <dl>
+        <dt>Reason</dt><dd>${cls.reason || '—'} (confidence ${cls.confidence ?? '—'})</dd>
+        <dt>Urgency</dt><dd>${urgencyFormatted}</dd>
+        <dt>Intent</dt><dd>${enr.intent || '—'}</dd>
+        <dt>Profile</dt><dd>${enr.profile || '—'}</dd>
+        <dt>Need</dt><dd>${enr.need || '—'}</dd>
+        <dt>Objection</dt><dd>${enr.objection || 'None stated'}${objMeta}</dd>
+        <dt>Missing info</dt><dd>${enr.missing_info || '—'}</dd>
+        <dt>Opportunity</dt><dd>${enr.opportunity || '—'}</dd>
+        <dt>Next action</dt><dd>${enr.next_action || '—'}</dd>
+        <dt>Priority score</dt><dd>${pr.score ?? 'N/A'} (${pr.band || 'N/A'})</dd>
+        <dt>Priority reason</dt><dd>${pr.priority_reason || '—'}</dd>
+        ${dupDetail}
+      </dl>
+      ${outreach ? `<div class="outreach">${outreach}</div>` : ''}
+      ${qcFlags.map(f => `<div class="qcnote">&#9873; ${f}</div>`).join('')}
+    `;
+    row.addEventListener('click', () => { row.classList.toggle('open'); detail.classList.toggle('open'); });
+    ledger.appendChild(row);
+    ledger.appendChild(detail);
+  });
+}
+
+document.getElementById('filterbar').addEventListener('click', (e) => {
+  if (e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#filterbar button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  currentFilter = e.target.dataset.filter;
+  renderLedger();
+});
+
+function toCSV() {
+  const headers = ['Lead','Name','Relevant','Reason','Confidence','Urgency','Intent','Profile','Need','Objection','Objection Severity','Missing Information','Priority','Priority Reason','Next Action','Outreach','QC Flags'];
+  const esc = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  const lines = [headers.join(',')];
+  STATE.primaries.forEach(p => {
+    const cls = STATE.classifications[p.lead_id] || {};
+    const enr = STATE.enrichments[p.lead_id] || {};
+    const outreach = STATE.outreach[p.lead_id] || '';
+    const qc = (STATE.qc[p.lead_id] || []).join(' | ');
+    const pr = p.priority || {};
+    lines.push([
+      p.lead_id, esc(p.name), cls.relevant ? 'Yes' : 'No', esc(cls.reason), cls.confidence ?? '',
+      esc(enr.urgency ?? ''), esc(enr.intent), esc(enr.profile), esc(enr.need), esc(enr.objection),
+      esc(enr.objection_severity ?? ''), esc(enr.missing_info),
+      pr.band || 'N/A', esc(pr.priority_reason || ''), esc(enr.next_action), esc(outreach), esc(qc)
+    ].join(','));
+  });
+  return lines.join('\n');
+}
+
+document.getElementById('runBtn').addEventListener('click', runPipeline);
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  const blob = new Blob([toCSV()], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'skillcase_lead_manifest.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>
