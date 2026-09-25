@@ -6,671 +6,786 @@
 <title>Skillcase Lead Manifest</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --ink: #102A56;
-    --ink-soft: #5F6F86;
-    --ink-faint: #8D99AA;
-  
-    --paper: #F7F9FC;
-    --paper-raised: #FFFFFF;
-  
-    --line: #E1E6EE;
-    --line-strong: #CBD3DF;
-  
-    --navy: #0B2A66;
-    --navy-soft: #EEF3FB;
-  
-    --yellow: #F4C542;
-    --yellow-soft: #FFF7D6;
-  
-    --green: #2E7D5B;
-    --green-soft: #E7F4ED;
-  
-    --red: #B94A48;
-    --red-soft: #FCEAEA;
+/* =========================================================================
+   SKILLCASE — exact workspace layout
+   Paper #FAF9F6 · ink #15233C · hairlines #E7E2D9 · Signal Tick motif
+   ========================================================================= */
 
-    /* Accent palette used by stage indicators, badges and review notes.
-       (These were referenced but never defined, which left the stage
-       strip, priority badges and QC notes unstyled.) */
-    --teal: #1F6E5A;
-    --teal-soft: #E3F1EB;
-    --gold: #8A6D1D;
-    --gold-soft: #FBF0CE;
-    --rust: #A8433F;
-    --rust-soft: #F9E4E3;
-  
-    --font-display: 'Newsreader', Georgia, 'Times New Roman', serif;
-    --font-body: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+:root {
+  --paper: #FAF9F6;
+  --paper-raised: #FFFFFF;
+  --paper-dim: #F3F1EA;
+  --ink: #15233C;
+  --ink-soft: #5C6779;
+  --ink-faint: #9298A3;
+  --label: #7C8798;
+  --line: #E7E2D9;
+  --line-ctrl: #E2DDD4;
+
+  --signal-high: #A63D2F;
+  --signal-med: #9A7B1E;
+  --signal-low: #8B8D94;
+  --signal-na: #C6C2B8;
+  --status-ok: #2E7D5B;
+  --status-off: #C9CDD4;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --t-fast: 140ms;
+  --t-med: 220ms;
+  --t-slow: 340ms;
+
+  --workspace: 1280px;
+  --row-grid: 18px 70px minmax(400px, 1fr) 150px 170px 90px;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+::selection { background: var(--ink); color: var(--paper); }
+
+.serif { font-family: 'Newsreader', Georgia, serif; }
+.mono  { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+button {
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 13px; font-weight: 600;
+  color: var(--paper); background: var(--ink);
+  border: 1px solid var(--ink); border-radius: 6px;
+  height: 40px; padding: 0 16px; cursor: pointer;
+  transition: background var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out),
+              color var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out),
+              opacity var(--t-fast) var(--ease-out);
+}
+button:hover { background: #1E3050; border-color: #1E3050; }
+button:active { transform: translateY(1px); }
+button:disabled { opacity: 0.4; cursor: default; transform: none; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--ink); outline-offset: 2px;
+}
+button.secondary { background: transparent; color: var(--ink); border-color: var(--line-ctrl); font-weight: 500; }
+button.secondary:hover { background: var(--paper-dim); border-color: var(--ink-faint); }
+
+.icon { width: 15px; height: 15px; stroke: currentColor; stroke-width: 1.6; fill: none; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* =========================================================================
+   ENTRY SCREEN
+   ========================================================================= */
+.entry-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 48px 24px; }
+.entry-container { width: min(660px, 100%); text-align: center; }
+.entry-logo { height: 34px; width: auto; margin-bottom: 40px; }
+.entry-container h1 { font-family: 'Newsreader', Georgia, serif; font-weight: 500; font-size: clamp(34px, 5vw, 48px); line-height: 1.08; margin: 0 0 14px; }
+.entry-container h1 em { font-style: italic; font-weight: 400; }
+.entry-subtitle { margin: 0 auto 40px; color: var(--ink-soft); max-width: 46ch; font-size: 15px; }
+.entry-box { border: 1px solid var(--line-ctrl); border-radius: 8px; background: var(--paper-raised); padding: 32px 28px; }
+.entry-box h2 { font-family: 'Newsreader', Georgia, serif; font-weight: 500; font-size: 20px; margin: 0 0 6px; }
+.entry-box p { margin: 0 0 20px; color: var(--ink-soft); font-size: 13.5px; }
+.entry-actions { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; }
+.entry-status { min-height: 20px; margin-top: 16px; font-size: 13px; color: var(--ink-soft); }
+.entry-status.err { color: var(--signal-high); }
+.entry-foot { margin-top: 22px; color: var(--ink-faint); font-size: 12.5px; }
+
+/* =========================================================================
+   PROCESSING SCREEN — original rotating globe, minimal
+   ========================================================================= */
+.processing-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 24px; background: var(--paper); }
+.processing-container { width: min(640px, 100%); text-align: center; }
+.processing-logo { height: 24px; width: auto; margin-bottom: 34px; opacity: 0.9; }
+.processing-stage { font-size: 15px; font-weight: 600; color: var(--ink); margin: 6px 0 0; }
+.globe-loader { width: min(400px, 68vw); aspect-ratio: 1; margin: 0 auto; position: relative; }
+#cobeGlobe { width: 100%; height: 100%; display: block; opacity: 0; transition: opacity 0.8s ease; }
+.progress-bar { width: 420px; max-width: 76%; height: 5px; background: #ECE9E1; border-radius: 999px; overflow: hidden; margin: 20px auto 12px; }
+.progress-fill { width: 0%; height: 100%; background: #173b7a; border-radius: 999px; transition: width 0.5s ease; }
+.progress-meta {
+  width: min(420px, 76%); margin: 0 auto; display: flex; justify-content: space-between;
+  font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; color: var(--ink-soft);
+}
+.processing-message { max-width: 440px; margin: 12px auto 0; color: var(--ink-soft); font-size: 13px; min-height: 18px; }
+.processing-error {
+  display: none; margin: 16px auto 0; max-width: 480px; padding: 12px 14px;
+  border-left: 2px solid var(--signal-high); background: #F4E4E0;
+  color: var(--signal-high); font-size: 13px; text-align: left; border-radius: 0 4px 4px 0;
+}
+.processing-error.show { display: block; }
+.processing-actions { display: none; margin-top: 16px; justify-content: center; }
+.processing-actions.show { display: flex; }
+
+/* =========================================================================
+   WORKSPACE — one centered canvas, everything shares its edges
+   ========================================================================= */
+.workspace { max-width: var(--workspace); margin: 0 auto; padding: 0 32px 72px; }
+
+/* --- Header: one compact row ------------------------------------------- */
+.masthead {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  height: 68px;
+  border-bottom: 1px solid var(--line);
+}
+.masthead-logo { height: 46px; width: auto; display: block; }
+.masthead-actions { display: flex; align-items: center; gap: 10px; flex: none; }
+
+.search-wrap { position: relative; display: flex; align-items: center; }
+.search-wrap svg { position: absolute; left: 12px; width: 14px; height: 14px; color: var(--ink-faint); pointer-events: none; }
+.search-wrap input {
+  width: 220px; height: 40px; padding: 0 12px 0 34px;
+  border: 1px solid var(--line-ctrl); border-radius: 6px;
+  background: transparent; font-family: 'Instrument Sans', sans-serif;
+  font-size: 13px; color: var(--ink);
+  transition: border-color var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out);
+}
+.search-wrap input:hover { border-color: var(--ink-faint); }
+.search-wrap input:focus { border-color: var(--ink); outline: none; background: var(--paper-raised); }
+.search-wrap input::placeholder { color: var(--ink-faint); }
+#downloadBtn svg { margin-right: 7px; vertical-align: -2.5px; }
+
+/* --- Tabs + controls zone: compact, 20–24px under the divider ----------- */
+.workspace-controls {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 18px; flex-wrap: wrap;
+  margin-top: 22px; min-height: 42px;
+}
+.tabs { position: relative; display: flex; gap: 28px; }
+.tab {
+  appearance: none; background: none; border: none; height: auto;
+  padding: 8px 2px 11px; color: var(--ink-soft);
+  font-size: 14.5px; font-weight: 600; cursor: pointer; position: relative;
+  transition: color var(--t-fast) var(--ease-out);
+}
+.tab:hover { color: var(--ink); }
+.tab .t-label { color: inherit; }
+.tab .count {
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500;
+  color: var(--ink-faint); margin-left: 6px;
+  transition: color var(--t-fast) var(--ease-out);
+}
+.tab[aria-selected="true"] { color: var(--ink); }
+.tab[aria-selected="true"] .count { color: var(--ink-faint); }
+.tab-tick {
+  position: absolute; bottom: 0; left: 0; height: 2px;
+  background: var(--ink); border-radius: 1px;
+  transition: transform var(--t-slow) var(--ease-out), width var(--t-slow) var(--ease-out), opacity var(--t-med);
+  will-change: transform, width;
+}
+
+.list-controls { display: flex; align-items: center; gap: 10px; }
+.list-controls select {
+  appearance: none; width: 105px; height: 40px; padding: 0 26px 0 12px;
+  border: 1px solid var(--line-ctrl); border-radius: 6px;
+  background: transparent url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1l3.5 3.5L8 1' fill='none' stroke='%235C6779' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+  font-family: 'Instrument Sans', sans-serif; font-size: 12.5px; color: var(--ink);
+  cursor: pointer; transition: border-color var(--t-fast) var(--ease-out);
+}
+.list-controls select:hover { border-color: var(--ink-faint); }
+.list-controls select:focus { border-color: var(--ink); outline: none; }
+
+/* --- Table header -------------------------------------------------------- */
+.col-head {
+  display: grid;
+  grid-template-columns: var(--row-grid);
+  gap: 14px; align-items: center;
+  height: 44px; margin-top: 10px;
+  border-bottom: 1px solid var(--line);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; font-weight: 500;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--label);
+}
+.col-head .h-actions { text-align: right; }
+
+/* =========================================================================
+   LEAD ROWS
+   ========================================================================= */
+.ledger { border-top: 0; }
+
+.lead-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--row-grid);
+  align-items: center; gap: 14px;
+  min-height: 66px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease-out);
+  will-change: transform;
+}
+.lead-row:hover { background: #F5F3EE; }
+.lead-row.open { background: var(--paper-raised); }
+
+/* — Signal Tick: extreme left, ~32px, color = priority — */
+.signal-tick {
+  width: 3px; height: 22px; border-radius: 2px; background: var(--signal-na);
+  justify-self: start; margin-left: 2px;
+  transform-origin: center;
+  transition: height var(--t-med) var(--ease-out), background var(--t-med) var(--ease-out);
+}
+.signal-tick.high { height: 32px; background: var(--signal-high); }
+.signal-tick.medium { height: 26px; background: var(--signal-med); }
+.signal-tick.low { height: 20px; background: var(--signal-low); }
+
+.lead-id { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--ink-faint); }
+
+.lead-name { min-width: 0; }
+.lead-name .n {
+  display: block; font-size: 16px; font-weight: 600; color: var(--ink);
+  line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lead-name .city { display: block; font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
+
+.lead-priority { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; white-space: nowrap; }
+.lead-priority .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.lead-priority .score { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; color: var(--ink-faint); }
+.lead-priority.high { color: var(--signal-high); } .lead-priority.high .dot { background: var(--signal-high); }
+.lead-priority.medium { color: var(--signal-med); } .lead-priority.medium .dot { background: var(--signal-med); }
+.lead-priority.low { color: var(--signal-low); } .lead-priority.low .dot { background: var(--signal-low); }
+.lead-priority.na { color: var(--signal-na); } .lead-priority.na .dot { background: var(--signal-na); }
+
+.lead-status {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: auto; padding: 4px 2px; border: none; background: none; border-radius: 4px;
+  font-size: 13px; font-weight: 500; color: var(--ink-soft);
+  justify-self: start; white-space: nowrap; user-select: none; cursor: pointer;
+  transition: color var(--t-fast) var(--ease-out);
+}
+.lead-status:hover { color: var(--ink); background: none; }
+.lead-status input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--status-off);
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+  position: relative;
+  flex: none;
+}
+
+.lead-status input:checked {
+  background: var(--status-ok);
+  border-color: var(--status-ok);
+}
+
+.lead-status input:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.lead-status.on { color: var(--ink-soft); }
+.lead-status.on .dot { background: var(--status-ok); }
+.lead-status:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 2px; }
+.ghost-btn {
+  appearance: none; background: none; border: none; height: 30px; width: 30px;
+  padding: 0; border-radius: 5px; color: var(--ink-faint); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out);
+}
+.ghost-btn:hover { color: var(--ink); background: rgba(21, 35, 60, 0.05); }
+.ghost-btn .icon { width: 16px; height: 16px; }
+.lead-row.open .chev-btn .icon { transform: rotate(180deg); }
+.chev-btn .icon { transition: transform var(--t-med) var(--ease-out); }
+.kebab-dots { display: flex; flex-direction: column; gap: 2.5px; }
+.kebab-dots i { width: 3px; height: 3px; border-radius: 50%; background: currentColor; display: block; }
+
+/* Row menu (kebab) */
+.row-menu {
+  position: absolute; right: 8px; top: calc(100% - 6px); z-index: 40;
+  min-width: 190px; padding: 6px;
+  background: var(--paper-raised); border: 1px solid var(--line);
+  border-radius: 8px; box-shadow: 0 10px 28px rgba(21, 35, 60, 0.12);
+  animation: menu-in var(--t-fast) var(--ease-out);
+}
+@keyframes menu-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.row-menu button {
+  display: flex; width: 100%; height: 34px; align-items: center;
+  padding: 0 10px; border: none; background: none; border-radius: 5px;
+  font-size: 13px; font-weight: 500; color: var(--ink); text-align: left;
+}
+.row-menu button:hover { background: var(--paper-dim); }
+.row-menu hr { border: 0; border-top: 1px solid var(--line); margin: 5px 4px; }
+
+@keyframes row-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+.lead-row.row-in, .lead-detail.row-in { animation: row-in var(--t-med) var(--ease-out) both; }
+
+/* =========================================================================
+   EXPANDED LEAD — part of the row, three conceptual columns
+   ========================================================================= */
+.lead-detail { display: none; border-bottom: 1px solid var(--line); background: var(--paper-raised); }
+.lead-detail.open { display: block; }
+.detail-inner { padding: 26px 28px 30px; animation: rise-in var(--t-med) var(--ease-out); }
+@keyframes rise-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+.detail-grid3 {
+  display: grid;
+  grid-template-columns: 24% 42% 34%;
+  max-width: 1100px;
+}
+.dcol { min-width: 0; }
+.dcol + .dcol { border-left: 1px solid var(--line); padding-left: 26px; }
+.dcol:first-child { padding-right: 26px; }
+.dsec { margin-bottom: 20px; }
+.dsec:last-child { margin-bottom: 0; }
+.dsec h4 {
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--label);
+  margin: 0 0 7px;
+}
+.dsec p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink); }
+.dsec p .not-stated, .not-stated { color: var(--ink-faint); font-style: italic; }
+.dsec .goal-serif { font-family: 'Newsreader', Georgia, serif; font-size: 15px; }
+
+/* Profile column */
+.p-name { font-family: 'Newsreader', Georgia, serif; font-size: 19px; font-weight: 500; line-height: 1.2; margin: 0 0 2px; }
+.p-line { font-size: 13px; color: var(--ink-soft); margin: 0 0 14px; }
+.p-facts { display: grid; gap: 10px; }
+.p-fact { font-size: 13px; color: var(--ink-soft); }
+.p-fact b {
+  display: block; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--label); margin-bottom: 1px;
+}
+
+/* Priority breakdown: compact rows + total score block */
+.breakdown-wrap { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+.breakdown { flex: 1 1 200px; min-width: 0; }
+.b-row { display: flex; justify-content: space-between; gap: 14px; font-size: 13.5px; color: var(--ink); padding: 5px 0; border-bottom: 1px solid var(--line); }
+.b-row:last-child { border-bottom: none; }
+.b-row .b-val { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink-soft); }
+.total-score {
+  flex: 0 0 118px; text-align: center;
+  background: var(--paper-dim); border: 1px solid var(--line); border-radius: 8px;
+  padding: 12px 10px 10px;
+}
+.total-score .ts-label { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--label); }
+.total-score .ts-num { font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 600; line-height: 1.15; margin-top: 2px; }
+.total-score .ts-band { font-size: 12px; font-weight: 600; }
+.total-score.high .ts-num, .total-score.high .ts-band { color: var(--signal-high); }
+.total-score.medium .ts-num, .total-score.medium .ts-band { color: var(--signal-med); }
+.total-score.low .ts-num, .total-score.low .ts-band { color: var(--signal-low); }
+.total-score .ts-na { color: var(--ink-faint); font-style: italic; font-size: 12px; }
+.priority-note { font-size: 11.5px; color: var(--ink-faint); margin: 10px 0 0; line-height: 1.45; }
+
+/* Outreach — the only raised surface, full width under the columns */
+.outreach-sec { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 18px; }
+.outreach-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+.outreach-head h4 {
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--label); margin: 0;
+}
+.outreach-actions { display: flex; gap: 8px; }
+.btn-small { height: 34px; padding: 0 14px; font-size: 12.5px; border-radius: 6px; display: inline-flex; align-items: center; gap: 7px; }
+.btn-small svg { width: 13px; height: 13px; }
+.btn-small.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn-small.primary:hover { background: #1E3050; }
+.btn-small.secondary { background: transparent; color: var(--ink); border-color: var(--line-ctrl); }
+.btn-small.secondary:hover { border-color: var(--ink-faint); background: var(--paper-raised); }
+
+.outreach-text {
+  display: block; width: 100%; min-height: 96px; padding: 13px 15px;
+  border: 1px solid var(--line); border-radius: 7px; background: var(--paper-raised);
+  color: var(--ink); font-family: 'IBM Plex Mono', monospace; font-size: 12.8px; line-height: 1.7;
+  resize: vertical;
+  transition: border-color var(--t-fast) var(--ease-out), opacity var(--t-med) var(--ease-out), filter var(--t-med) var(--ease-out);
+}
+.outreach-text:focus { outline: none; border-color: var(--ink); }
+.outreach-text.regenerating { opacity: 0.45; filter: blur(0.6px); pointer-events: none; }
+
+.outreach-box { position: relative; }
+.outreach-box::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(21, 35, 60, 0.04) 50%, transparent 70%);
+  transform: translateX(-100%);
+}
+.outreach-box.regenerating::after { animation: shimmer 1.1s var(--ease-in-out) infinite; }
+@keyframes shimmer { to { transform: translateX(100%); } }
+
+.outreach-box.regenerate-error .outreach-text { border-color: var(--signal-high); }
+.outreach-box.regenerate-error { animation: shake 0.32s var(--ease-in-out); }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(-4px); } 60% { transform: translateX(3px); } 85% { transform: translateX(-2px); }
+}
+.regen-error { display: none; margin-top: 8px; font-size: 12.5px; color: var(--signal-high); }
+.regen-error.show { display: block; }
+
+.spin-arc { width: 12px; height: 12px; border-radius: 50%; border: 1.6px solid rgba(21, 35, 60, 0.2); border-top-color: var(--ink); animation: spin 0.7s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.review-note {
+  margin-top: 16px; padding: 10px 14px;
+  border-left: 2px solid var(--signal-med); background: #F4ECD5;
+  color: #6E5716; font-size: 12.5px; border-radius: 0 4px 4px 0;
+}
+.review-note strong { display: block; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 3px; }
+
+.contacted-actions { margin-top: 16px; }
+
+/* =========================================================================
+   REMOVED LEADS
+   ========================================================================= */
+.removed-status { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--ink-faint); }
+
+/* =========================================================================
+   QC FOLD — below the lead list, collapsed by default
+   ========================================================================= */
+.qc-fold { margin: 30px 0 0; border-top: 1px solid var(--line); }
+.qc-fold summary {
+  list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 12px;
+  padding: 13px 2px; user-select: none;
+}
+.qc-fold summary::-webkit-details-marker { display: none; }
+.qc-fold summary .qc-kicker {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 500;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--label);
+}
+.qc-fold summary .qc-title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.qc-fold summary .qc-count { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--signal-med); }
+.qc-fold summary .qc-caret { margin-left: auto; color: var(--ink-faint); transition: transform var(--t-med) var(--ease-out); font-size: 13px; }
+.qc-fold[open] summary .qc-caret { transform: rotate(90deg); }
+.qc-fold .qc-body { padding: 2px 2px 16px; }
+.qc-fold .problem { border-top: 1px solid var(--line); padding: 12px 2px; }
+.qc-fold .problem h3 { font-size: 13.5px; font-weight: 600; margin: 0 0 4px; }
+.qc-fold .problem p { margin: 0; font-size: 13.5px; color: var(--ink-soft); }
+
+/* =========================================================================
+   MISC
+   ========================================================================= */
+.empty-state { padding: 52px 20px; text-align: center; color: var(--ink-faint); font-size: 13.5px; border-bottom: 1px solid var(--line); }
+.empty-state .serif { display: block; font-size: 17px; font-style: italic; color: var(--ink-soft); margin-bottom: 4px; }
+
+.toast {
+  position: fixed; right: 26px; bottom: 26px; z-index: 1000;
+  padding: 11px 16px; border-radius: 6px; background: var(--ink); color: var(--paper);
+  font-size: 13px; box-shadow: 0 8px 24px rgba(21, 35, 60, 0.18);
+  opacity: 0; transform: translateY(10px); pointer-events: none;
+  transition: opacity var(--t-med) var(--ease-out), transform var(--t-med) var(--ease-out);
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+
+footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--ink-faint); max-width: 860px; }
+
+.stagger > * { animation: rise-in var(--t-slow) var(--ease-out) backwards; }
+.stagger > *:nth-child(1) { animation-delay: 20ms; }
+.stagger > *:nth-child(2) { animation-delay: 55ms; }
+.stagger > *:nth-child(3) { animation-delay: 90ms; }
+.stagger > *:nth-child(4) { animation-delay: 125ms; }
+.stagger > *:nth-child(5) { animation-delay: 160ms; }
+
+/* =========================================================================
+   RESPONSIVE — wrap, collapse columns, never horizontal scroll
+   ========================================================================= */
+@media (max-width: 1150px) {
+  .col-head, .lead-row { grid-template-columns: 18px 70px minmax(280px, 1fr) 150px 90px; }
+  .col-head .h-status, .lead-row .lead-status { display: none; }
+  .detail-grid3 { grid-template-columns: 30% 1fr; }
+  .dcol:nth-child(3) { grid-column: 2; border-left: 1px solid var(--line); }
+  .dcol:nth-child(2) { border-left: 1px solid var(--line); }
+}
+@media (max-width: 880px) {
+  .workspace { padding: 0 20px 56px; }
+  .masthead { flex-wrap: wrap; height: auto; padding: 12px 0; row-gap: 10px; }
+  .masthead-actions { width: 100%; justify-content: flex-end; }
+  .search-wrap input { width: 180px; }
+  .col-head, .lead-row { grid-template-columns: 14px 64px minmax(200px, 1fr) 90px; }
+  .col-head .h-priority, .lead-row .lead-priority { display: none; }
+  .detail-grid3 { grid-template-columns: 1fr; }
+  .dcol { padding: 0 !important; border-left: none !important; }
+  .dcol + .dcol { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 16px !important; }
+  .detail-inner { padding: 22px 20px 26px; }
+  .workspace-controls { flex-direction: column; align-items: stretch; }
+  .tabs { gap: 20px; overflow-x: auto; }
+  .list-controls { justify-content: flex-end; }
+}
+@media (max-width: 620px) {
+  .col-head { display: none; }
+  .lead-row { grid-template-columns: 12px minmax(120px, 1fr) 60px; }
+  .lead-row .lead-id { display: none; }
+  .search-wrap input { width: 100%; }
+  .search-wrap { flex: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
-  .wrap { max-width: 980px; margin: 0 auto; padding: 40px 24px 80px; }
-  header.masthead { border-bottom: 1px solid var(--line-strong); padding-bottom: 22px; margin-bottom: 28px; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
-  header.masthead h1 { font-family: var(--font-display); font-weight: 500; font-size: 34px; margin: 0 0 4px; letter-spacing: -0.01em; }
-  header.masthead p.sub { margin: 0; color: var(--ink-soft); max-width: 46ch; font-size: 14.5px; }
-  .manifest-no { font-family: var(--font-display); font-style: italic; color: var(--ink-faint); font-size: 14px; white-space: nowrap; }
-
-  .pipeline { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; margin: 28px 0 8px; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; background: var(--paper-raised); }
-  .stage { padding: 14px 10px; text-align: center; border-right: 1px solid var(--line); }
-  .stage:last-child { border-right: none; }
-  .stage .n { font-family: var(--font-display); font-size: 20px; color: var(--ink-faint); display: block; margin-bottom: 3px; }
-  .stage .label { font-size: 11.5px; color: var(--ink-soft); }
-  .stage.active { background: var(--teal-soft); }
-  .stage.active .n { color: var(--teal); }
-  .stage.done { background: var(--teal-soft); }
-  .stage.done .n::after { content: " \2713"; }
-  .stage.done .n, .stage.done .label { color: var(--teal); }
-  .stage.error { background: var(--rust-soft); }
-  .stage.error .n, .stage.error .label { color: var(--rust); }
-
-  .controls { display: flex; align-items: center; gap: 14px; margin: 18px 0 30px; flex-wrap: wrap; }
-  button { font-family: var(--font-body); font-weight: 600; font-size: 14px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); padding: 11px 20px; border-radius: 3px; cursor: pointer; }
-  button:disabled { opacity: 0.45; cursor: default; }
-  button.secondary { background: transparent; color: var(--ink); border-color: var(--line-strong); font-weight: 500; }
-  .runlog { font-size: 13px; color: var(--ink-soft); min-height: 20px; }
-  .runlog.err { color: var(--rust); }
-
-  section.block { margin: 44px 0; }
-  section.block > h2 { font-family: var(--font-display); font-weight: 500; font-size: 21px; margin: 0 0 6px; }
-  section.block > p.desc { margin: 0 0 18px; color: var(--ink-soft); font-size: 14px; max-width: 68ch; }
-
-  .formula { background: var(--paper-raised); border: 1px solid var(--line); border-radius: 3px; padding: 16px 18px; font-size: 13.5px; color: var(--ink-soft); }
-  .formula code { color: var(--ink); font-weight: 600; }
-  .formula ul { margin: 8px 0 0; padding-left: 18px; }
-  .formula li { margin: 3px 0; }
-
-  .ledger { border-top: 1px solid var(--line-strong); }
-  .row { border-bottom: 1px solid var(--line); padding: 13px 4px; display: grid; grid-template-columns: 52px 1.4fr 90px 100px 90px 24px; align-items: center; gap: 10px; cursor: pointer; }
-  .row:hover { background: var(--paper-raised); }
-  .row .id { font-size: 12.5px; color: var(--ink-faint); }
-  .row .name { font-weight: 600; }
-  .row .name .city { display: block; font-weight: 400; font-size: 12.5px; color: var(--ink-soft); }
-  .badge { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 20px; text-align: center; white-space: nowrap; }
-  .badge.yes { background: var(--teal-soft); color: var(--teal); }
-  .badge.no { background: var(--line); color: var(--ink-soft); }
-  .badge.high { background: var(--gold-soft); color: var(--gold); }
-  .badge.medium { background: var(--teal-soft); color: var(--teal); }
-  .badge.low { background: var(--line); color: var(--ink-soft); }
-  .badge.na { background: var(--line); color: var(--ink-faint); }
-  .badge.flag { background: var(--rust-soft); color: var(--rust); }
-  .badge.ok { background: var(--paper); color: var(--ink-faint); border: 1px solid var(--line); }
-  .chev { color: var(--ink-faint); text-align: right; transition: transform 0.15s ease; }
-  .row.open .chev { transform: rotate(90deg); }
-
-  .detail { display: none; padding: 4px 4px 22px 62px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
-  .detail.open { display: block; }
-  .detail dl { margin: 0; display: grid; grid-template-columns: 130px 1fr; gap: 7px 14px; }
-  .detail dt { color: var(--ink-faint); }
-  .detail dd { margin: 0; color: var(--ink); }
-  .detail .outreach { margin-top: 14px; background: var(--paper-raised); border-left: 2px solid var(--teal); padding: 12px 14px; font-family: var(--font-display); font-style: italic; font-size: 14.5px; color: var(--ink); }
-  .detail .qcnote { margin-top: 10px; font-size: 12.5px; color: var(--rust); }
-
-  .problem { border: 1px solid var(--line); border-left: 3px solid var(--rust); border-radius: 0 3px 3px 0; padding: 14px 16px; margin-bottom: 12px; background: var(--paper-raised); }
-  .problem h3 { margin: 0 0 5px; font-size: 14.5px; font-family: var(--font-body); }
-  .problem p { margin: 0; font-size: 13.5px; color: var(--ink-soft); }
-
-  .filterbar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-  .filterbar button { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); font-weight: 500; font-size: 12.5px; padding: 6px 13px; }
-  .filterbar button.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-
-  footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--ink-faint); }
-
-
-  /* Initial upload screen */
-  .upload-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
-  .upload-container { width: min(680px, 100%); text-align: center; }
-  .upload-brand { font-family: var(--font-display); font-size: 15px; letter-spacing: .16em; color: var(--teal); margin-bottom: 24px; }
-  .upload-container h1 { font-family: var(--font-display); font-weight: 500; font-size: clamp(38px, 6vw, 56px); margin: 0 0 10px; letter-spacing: -.02em; }
-  .upload-subtitle { margin: 0 auto 30px; color: var(--ink-soft); max-width: 54ch; }
-  .upload-box { border: 1px dashed var(--line-strong); background: var(--paper-raised); border-radius: 5px; padding: 42px 28px; }
-  .upload-box h2 { font-family: var(--font-display); font-weight: 500; font-size: 22px; margin: 0 0 6px; }
-  .upload-box p { margin: 0 0 18px; color: var(--ink-soft); font-size: 13.5px; }
-  .upload-actions { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .upload-file-label { display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-body); font-weight: 600; font-size: 14px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); padding: 11px 20px; border-radius: 3px; cursor: pointer; }
-  .upload-sample { background: transparent !important; color: var(--ink) !important; border-color: var(--line-strong) !important; }
-  .upload-status { min-height: 22px; margin-top: 18px; font-size: 13px; color: var(--ink-soft); }
-  .upload-status.err { color: var(--rust); }
-  .upload-run { margin-top: 18px; min-width: 180px; }
-  .upload-hint { margin-top: 14px; color: var(--ink-faint); font-size: 12px; }
-
-  .upload-hint { margin-top: 14px; color: var(--ink-faint); font-size: 12px; }
-
-
-  /* =========================================================
-     DOTTED GLOBE PROCESSING SCREEN
-     ========================================================= */
-
-  .processing-screen {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 24px;
-    background: #ffffff;
-  }
-
-  /* Moved out of the (invalidly) nested block above so the progress bar
-     renders in every browser. */
-  .progress-bar {
-    width: 520px;
-    max-width: 80%;
-    height: 6px;
-    background: #e8ecf3;
-    border-radius: 999px;
-    overflow: hidden;
-    margin: 18px auto 14px;
-  }
-
-  .progress-fill {
-    width: 0%;
-    height: 100%;
-    background: #173b7a;
-    border-radius: 999px;
-    transition: width 0.5s ease;
-  }
-
-  .processing-container {
-    width: min(700px, 100%);
-    text-align: center;
-  }
-
-  .processing-brand {
-    font-family: var(--font-body);
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.18em;
-    color: #0B2A66;
-    margin-bottom: 30px;
-  }
-
-  .processing-container h1 {
-    font-family: var(--font-display);
-    font-weight: 500;
-    font-size: 38px;
-    line-height: 1.15;
-    color: #0B2A66;
-    margin: 0 0 8px;
-  }
-
-  .processing-stage {
-    font-size: 17px;
-    font-weight: 600;
-    color: #0B2A66;
-    margin-bottom: 0;
-  }
-
-  .globe-loader {
-    width: min(430px, 72vw);
-    aspect-ratio: 1;
-    margin: 0 auto;
-    position: relative;
-  }
-
-  #cobeGlobe {
-    width: 100%;
-    height: 100%;
-    display: block;
-    opacity: 0;
-    transition: opacity 0.8s ease;
-  }
-
-  .progress-meta {
-    width: min(430px, 72vw);
-    margin: -5px auto 0;
-    display: flex;
-    justify-content: space-between;
-    font-family: var(--font-body);
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--ink-soft);
-  }
-
-  #progressPercent {
-    color: #0B2A66;
-  }
-
-  .processing-message {
-    max-width: 480px;
-    margin: 14px auto 0;
-    color: var(--ink-soft);
-    font-size: 13.5px;
-  }
-
-
-  @media (max-width: 640px) {
-    .pipeline { grid-template-columns: repeat(3, 1fr); }
-    .row { grid-template-columns: 40px 1fr 70px 24px; }
-    .row .priority-col { display: none; }
-    .detail { padding-left: 30px; }
-    .detail dl { grid-template-columns: 1fr; }
-
-    .processing-container h1 {
-      font-size: 32px;
-    }
-
-    .globe-loader {
-      width: min(340px, 78vw);
-    }
-
-    .progress-meta {
-      width: min(340px, 78vw);
-    }
-  }
-
-  @media (max-width: 640px) {
-    .pipeline { grid-template-columns: repeat(3, 1fr); }
-    .row { grid-template-columns: 40px 1fr 70px 24px; }
-    .row .priority-col { display: none; }
-    .detail { padding-left: 30px; }
-    .detail dl { grid-template-columns: 1fr; }
-  }
-
-  .outreach-box {
-    margin-top: 20px;
-    padding: 16px;
-    background: var(--paper-raised);
-    border: 1px solid var(--line);
-    border-radius: 4px;
-  }
-  
-  .outreach-box h4 {
-    margin: 0 0 8px;
-    font-size: 13px;
-    color: var(--ink-soft);
-  }
-  
-  .outreach-box textarea {
-    display: block;
-    width: 100%;
-    min-height: 190px;
-    padding: 13px 14px;
-    border: 1px solid var(--line-strong);
-    border-radius: 4px;
-    background: var(--paper);
-    color: var(--ink);
-    font-family: var(--font-body);
-    font-size: 14px;
-    line-height: 1.55;
-    resize: vertical;
-    overflow-y: hidden;
-    box-sizing: border-box;
-  }
-  
-  .outreach-box textarea:focus {
-    outline: none;
-    border-color: var(--navy);
-  }
-  
-  .outreach-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 8px;
-  }
-  
-  .copy-btn {
-    background: transparent;
-    color: var(--ink);
-    border-color: var(--line-strong);
-    padding: 7px 12px;
-    font-size: 12px;
-  }
-  
-  .contact-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 11.5px;
-    color: var(--ink-soft);
-    white-space: nowrap;
-    cursor: pointer;
-  }
-  
-  .contact-checkbox input {
-    width: 15px;
-    height: 15px;
-    accent-color: var(--navy);
-    cursor: pointer;
-  }
-  
-  .row.completing {
-    opacity: 0.45;
-    background: var(--paper-raised);
-    transition: opacity 0.25s ease, background 0.25s ease;
-  }
-  
-  .row.completing .id,
-  .row.completing .name {
-    color: var(--ink-faint);
-  }
-  
-  .skillcase-toast {
-    position: fixed;
-    right: 24px;
-    bottom: 24px;
-    z-index: 1000;
-    padding: 11px 16px;
-    border: 1px solid var(--line);
-    border-radius: 5px;
-    background: var(--navy);
-    color: white;
-    font-size: 13px;
-    opacity: 0;
-    transform: translateY(8px);
-    pointer-events: none;
-    transition: opacity 0.2s ease, transform 0.2s ease;
-  }
-  
-  .skillcase-toast.show {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  /* =========================================================
-     WORKSPACE COMPONENTS (referenced by the markup but previously
-     missing from the stylesheet)
-     ========================================================= */
-  .workspace-tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-  .workspace-tabs button { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); font-weight: 500; font-size: 12.5px; padding: 6px 13px; }
-  .workspace-tabs button.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-
-  .lead-controls { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
-  .lead-controls input[type="search"] { flex: 1 1 220px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 3px; font-family: var(--font-body); font-size: 13.5px; background: var(--paper-raised); color: var(--ink); }
-  .lead-controls select { padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 3px; background: var(--paper-raised); color: var(--ink); font-family: var(--font-body); font-size: 13px; }
-
-  .empty-state { padding: 34px 12px; text-align: center; color: var(--ink-faint); font-size: 13.5px; border: 1px dashed var(--line-strong); border-radius: 3px; background: var(--paper-raised); }
-
-  .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
-  .detail-item h4 { margin: 0 0 3px; font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); }
-  .detail-item p { margin: 0; color: var(--ink); }
-  .detail-item.detail-full { grid-column: 1 / -1; }
-
-  .review-note { margin-top: 12px; padding: 10px 12px; border-left: 2px solid var(--rust); background: var(--rust-soft); color: var(--rust); font-size: 12.5px; border-radius: 0 3px 3px 0; }
-
-  /* Lead rows have five cells, not the six the original grid assumed. */
-  .row { grid-template-columns: 52px 1.4fr 90px minmax(130px, 1fr) 24px; }
-
-  .processing-error {
-    display: none;
-    margin: 16px auto 0;
-    max-width: 520px;
-    padding: 12px 14px;
-    border: 1px solid var(--rust);
-    border-radius: 4px;
-    background: var(--rust-soft);
-    color: var(--rust);
-    font-size: 13.5px;
-    text-align: left;
-  }
-  .processing-error.show { display: block; }
-
-  .processing-actions { display: none; margin-top: 16px; justify-content: center; }
-  .processing-actions.show { display: flex; }
+}
 </style>
 </head>
 <body>
 
-  <!-- =========================================================
-     PROCESSING SCREEN
-     ========================================================= -->
+<!-- ================= PROCESSING SCREEN (original globe) ================= -->
 <div id="processingScreen" class="processing-screen" style="display:none;">
-
   <div class="processing-container">
-
-    <div class="processing-brand">
-      SKILLCASE
-    </div>
-
-    <h1>Processing your leads</h1>
-
-    <div id="processingStage" class="processing-stage">
-      Preparing pipeline...
-    </div>
-
-    <div class="globe-loader">
-      <canvas id="cobeGlobe"></canvas>
-    </div>
-
-    <div class="progress-bar">
-      <div id="progressFill" class="progress-fill"></div>
-    </div>
-    
+    <img src="data:image/png;base64,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" alt="Skillcase" class="processing-logo">
+    <div class="globe-loader"><canvas id="cobeGlobe"></canvas></div>
+    <div id="processingStage" class="processing-stage">Processing leads</div>
+    <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
     <div class="progress-meta">
       <span id="progressStep">0 / 6</span>
       <span id="progressPercent">0%</span>
     </div>
-
-    <p id="processingMessage" class="processing-message">
-      Getting your dataset ready...
-    </p>
-
+    <p id="processingMessage" class="processing-message">Getting your dataset ready…</p>
     <div id="processingError" class="processing-error" role="alert"></div>
-
     <div id="processingActions" class="processing-actions">
-      <button id="backToUploadBtn" class="secondary upload-sample" type="button">Back and try again</button>
+      <button id="backToUploadBtn" class="secondary" type="button">Back and try again</button>
     </div>
-
   </div>
-
 </div>
-<div id="uploadScreen" class="upload-screen">
-  <div class="upload-container">
-    <div class="upload-brand">SKILLCASE</div>
-    <h1>AI Lead Intelligence</h1>
-    <p class="upload-subtitle">
-      Clean, qualify and prioritize your B2C leads with an AI-assisted sales workflow.
+
+<!-- ================= ENTRY / UPLOAD SCREEN ================= -->
+<div id="uploadScreen" class="entry-screen">
+  <div class="entry-container">
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAcoAAACMCAYAAAD86ukZAAAMTWlDQ1BJQ0MgUHJvZmlsZQAASImVVwdYU1cbPndkQggQiICMsJcgIiOAjBBWANlbVEISIIwYE4KKGymtYN0ighOtgihYrYAUF2pdFMW9iwMVpRZrcSv/CQG09B/P/+U59755z3ff833fPffecwCgd/Gl0lxUE4A8Sb4sJtiflZScwiI9AwjAARP+dPkCuZQTFRUOoA2f/26vr0FvaJcdlFr/7P+vpiUUyQUAIFEQpwvlgjyIfwIAbxVIZfkAEKWQN5+VL1XitRDryGCAENcocaYKtypxugpfHPSJi+FC/AgAsjqfL8sEQKMP8qwCQSbUocNsgZNEKJZA7AexT17eDCHEiyC2gT5wTLpSn53+lU7m3zTTRzT5/MwRrMpl0MgBYrk0lz/n/yzH/7a8XMXwGNawqWfJQmKUOcO6PcqZEabE6hC/laRHREKsDQCKi4WD/krMzFKExKv8URuBnAtrBu8yQCfJc2N5Q3yMkB8QBrEhxBmS3IjwIZ+iDHGQ0gfWD60Q5/PiINaDuEYkD4wd8jkmmxEzPO61DBmXM8Q/5csGY1Dqf1bkxHNU+ph2log3pI85FmbFJUJMhTigQJwQAbEGxBHynNiwIZ/UwixuxLCPTBGjzMUCYplIEuyv0sfKM2RBMUP+u/Pkw7ljx7LEvIghfCk/Ky5EVSvskYA/GD/MBesTSTjxwzoieVL4cC5CUUCgKnecLJLEx6p4XE+a7x+juha3k+ZGDfnj/qLcYCVvBnGcvCB2+NqCfDg5Vfp4iTQ/Kk4VJ16ZzQ+NUsWD7wPhgAsCAAsoYEsHM0A2EHf0NvXCf6qeIMAHMpAJRMBhiBm+InGwRwKPsaAQ/A6RCMhHrvMf7BWBAsh/GsUqOfEIpzo6gIyhPqVKDngMcR4IA7nwv2JQSTISQQJ4BBnxPyLiwyaAOeTCpuz/9/ww+4XhQCZ8iFEMj8iiD3sSA4kBxBBiENEWN8B9cC88HB79YHPG2bjHcB5f/AmPCZ2EB4SrhC7CzeniItmoKCeDLqgfNFSf9K/rg1tBTVfcH/eG6lAZZ+IGwAF3geNwcF84sitkuUNxK6vCGqX9twy+ukNDfhQnCkoZQ/Gj2Iy+UsNOw3VERVnrr+ujijV9pN7ckZ7R43O/qr4QnsNGe2LfYQew09hx7CzWijUBFnYUa8bascNKPDLjHg3OuOHRYgbjyYE6o+fMlzurrKTcqc6px+mjqi9fNDtf+TByZ0jnyMSZWfksDvxiiFg8icBxHMvZydkNAOX3R/V6exU9+F1BmO1fuCW/AeB9dGBg4OcvXOhRAH50h6+EQ184Gzb8tKgBcOaQQCErUHG48kCAbw46fPr0gTEwBzYwH2fgBryAHwgEoSASxIFkMA1GnwXnuQzMAvPAYlACysBKsA5Ugi1gO6gBe8F+0ARawXHwCzgPLoKr4DacPd3gOegDr8EHBEFICA1hIPqICWKJ2CPOCBvxQQKRcCQGSUbSkExEgiiQecgSpAxZjVQi25Ba5EfkEHIcOYt0IjeR+0gP8ifyHsVQdVQHNUKt0PEoG+WgYWgcOhXNRGeihWgxuhytQKvRPWgjehw9j15Fu9DnaD8GMDWMiZliDhgb42KRWAqWgcmwBVgpVo5VY/VYC7zPl7EurBd7hxNxBs7CHeAMDsHjcQE+E1+AL8Mr8Rq8ET+JX8bv4334ZwKNYEiwJ3gSeIQkQiZhFqGEUE7YSThIOAWfpW7CayKRyCRaE93hs5hMzCbOJS4jbiI2EI8RO4kPif0kEkmfZE/yJkWS+KR8UglpA2kP6SjpEqmb9JasRjYhO5ODyClkCbmIXE7eTT5CvkR+Qv5A0aRYUjwpkRQhZQ5lBWUHpYVygdJN+UDVolpTvalx1GzqYmoFtZ56inqH+kpNTc1MzUMtWk2stkitQm2f2hm1+2rv1LXV7dS56qnqCvXl6rvUj6nfVH9Fo9GsaH60FFo+bTmtlnaCdo/2VoOh4ajB0xBqLNSo0mjUuKTxgk6hW9I59Gn0Qno5/QD9Ar1Xk6JppcnV5Gsu0KzSPKR5XbNfi6E1QStSK09rmdZurbNaT7VJ2lbagdpC7WLt7dontB8yMIY5g8sQMJYwdjBOMbp1iDrWOjydbJ0ynb06HTp9utq6LroJurN1q3QP63YxMaYVk8fMZa5g7mdeY74fYzSGM0Y0ZumY+jGXxrzRG6vnpyfSK9Vr0Luq916fpR+on6O/Sr9J/64BbmBnEG0wy2CzwSmD3rE6Y73GCsaWjt0/9pYhamhnGGM413C7Ybthv5GxUbCR1GiD0QmjXmOmsZ9xtvFa4yPGPSYMEx8Tsclak6Mmz1i6LA4rl1XBOsnqMzU0DTFVmG4z7TD9YGZtFm9WZNZgdtecas42zzBfa95m3mdhYjHZYp5FncUtS4ol2zLLcr3lacs3VtZWiVbfWjVZPbXWs+ZZF1rXWd+xodn42sy0qba5Yku0Zdvm2G6yvWiH2rnaZdlV2V2wR+3d7MX2m+w7xxHGeYyTjKsed91B3YHjUOBQ53DfkekY7ljk2OT4YrzF+JTxq8afHv/ZydUp12mH0+0J2hNCJxRNaJnwp7Ods8C5yvnKRNrEoIkLJzZPfOli7yJy2exyw5XhOtn1W9c2109u7m4yt3q3HncL9zT3je7X2TrsKPYy9hkPgoe/x0KPVo93nm6e+Z77Pf/wcvDK8drt9XSS9STRpB2THnqbefO9t3l3+bB80ny2+nT5mvryfat9H/iZ+wn9dvo94dhysjl7OC/8nfxl/gf933A9ufO5xwKwgOCA0oCOQO3A+MDKwHtBZkGZQXVBfcGuwXODj4UQQsJCVoVc5xnxBLxaXl+oe+j80JNh6mGxYZVhD8LtwmXhLZPRyaGT10y+E2EZIYloigSRvMg1kXejrKNmRv0cTYyOiq6KfhwzIWZezOlYRuz02N2xr+P841bE3Y63iVfEtyXQE1ITahPeJAYkrk7sShqfND/pfLJBsji5OYWUkpCyM6V/SuCUdVO6U11TS1KvTbWeOnvq2WkG03KnHZ5On86ffiCNkJaYtjvtIz+SX83vT+elb0zvE3AF6wXPhX7CtcIekbdotehJhnfG6oynmd6ZazJ7snyzyrN6xVxxpfhldkj2luw3OZE5u3IGchNzG/LIeWl5hyTakhzJyRnGM2bP6JTaS0ukXTM9Z66b2ScLk+2UI/Kp8uZ8HbjQb1fYKL5R3C/wKagqeDsrYdaB2VqzJbPb59jNWTrnSWFQ4Q9z8bmCuW3zTOctnnd/Pmf+tgXIgvQFbQvNFxYv7F4UvKhmMXVxzuJfi5yKVhf9tSRxSUuxUfGi4offBH9TV6JRIiu5/q3Xt1u+w78Tf9exdOLSDUs/lwpLz5U5lZWXfVwmWHbu+wnfV3w/sDxjeccKtxWbVxJXSlZeW+W7qma11urC1Q/XTF7TuJa1tnTtX+umrztb7lK+ZT11vWJ9V0V4RfMGiw0rN3yszKq8WuVf1bDRcOPSjW82CTdd2uy3uX6L0ZayLe+3irfe2Ba8rbHaqrp8O3F7wfbHOxJ2nP6B/UPtToOdZTs/7ZLs6qqJqTlZ615bu9tw94o6tE5R17Mndc/FvQF7m+sd6rc1MBvK9oF9in3Pfkz78dr+sP1tB9gH6n+y/GnjQcbB0kakcU5jX1NWU1dzcnPnodBDbS1eLQd/dvx5V6tpa9Vh3cMrjlCPFB8ZOFp4tP+Y9Fjv8czjD9umt90+kXTiysnokx2nwk6d+SXolxOnOaePnvE+03rW8+yhc+xzTefdzje2u7Yf/NX114Mdbh2NF9wvNF/0uNjSOanzyCXfS8cvB1z+5QrvyvmrEVc7r8Vfu3E99XrXDeGNpzdzb768VXDrw+1Fdwh3Su9q3i2/Z3iv+jfb3xq63LoO3w+43/4g9sHth4KHzx/JH33sLn5Me1z+xORJ7VPnp609QT0Xn0151v1c+vxDb8nvWr9vfGHz4qc//P5o70vq634peznw57JX+q92/eXyV1t/VP+913mvP7wpfav/tuYd+93p94nvn3yY9ZH0seKT7aeWz2Gf7wzkDQxI+TL+4FIAA8qtTQYAf+4CgJYMAAPuG6lTVPvDQUNUe9pBBP4TVu0hBw2uXOrhmj66F65urgOwbwcAVlCfngpAFA2AOA+ATpw40ob3coP7TqUR4d5ga8yn9Lx08G9MtSf9Ku7RZ6BUdQGjz/8CE06C/vrhbzEAAACKZVhJZk1NACoAAAAIAAQBGgAFAAAAAQAAAD4BGwAFAAAAAQAAAEYBKAADAAAAAQACAACHaQAEAAAAAQAAAE4AAAAAAAAAkAAAAAEAAACQAAAAAQADkoYABwAAABIAAAB4oAIABAAAAAEAAAHKoAMABAAAAAEAAACMAAAAAEFTQ0lJAAAAU2NyZWVuc2hvdDu+a9AAAAAJcEhZcwAAFiUAABYlAUlSJPAAAAHWaVRYdFhNTDpjb20uYWRvYmUueG1wAAAAAAA8eDp4bXBtZXRhIHhtbG5zOng9ImFkb2JlOm5zOm1ldGEvIiB4OnhtcHRrPSJYTVAgQ29yZSA2LjAuMCI+CiAgIDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+CiAgICAgIDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiCiAgICAgICAgICAgIHhtbG5zOmV4aWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20vZXhpZi8xLjAvIj4KICAgICAgICAgPGV4aWY6UGl4ZWxZRGltZW5zaW9uPjE0MDwvZXhpZjpQaXhlbFlEaW1lbnNpb24+CiAgICAgICAgIDxleGlmOlBpeGVsWERpbWVuc2lvbj40NTg8L2V4aWY6UGl4ZWxYRGltZW5zaW9uPgogICAgICAgICA8ZXhpZjpVc2VyQ29tbWVudD5TY3JlZW5zaG90PC9leGlmOlVzZXJDb21tZW50PgogICAgICA8L3JkZjpEZXNjcmlwdGlvbj4KICAgPC9yZGY6UkRGPgo8L3g6eG1wbWV0YT4K2w/fgAAAABxpRE9UAAAAAgAAAAAAAABGAAAAKAAAAEYAAABGAAAKZ5J9rvwAAAozSURBVHgB7J0xqB1FFEBfGn+VEIzaWGkKDcEm0UJSW0vEyspG01iGoEVQCKJIChuFKIhaCEIwWClYBwuNnaiFdjaJSjSCxEb//S+Tebt/9+6dOzO785Pziv/27ezM3HtmmPNm/3/v7/tv+7HiAQEIQAACEIDAIIF9iHKQCychAAEIQAACOwQQJRMBAhCAAAQgoBBAlAociiAAAQhAAAKIkjkAAQhAAAIQUAggSgUORRCAAAQgAAFEyRyAAAQgAAEIKAQQpQKHIghAAAIQgACiZA5AAAIQgAAEFAKIUoFDEQQgAAEIQABRMgcgAAEIQAACCgFEqcChCAIQgAAEIIAomQMQgAAEIAABhQCiVOBQBAEIQAACEECUzAEIQAACEICAQgBRKnAoggAEIAABCCBK5gAEIAABCEBAIYAoFTgUQQACEIAABBAlcwACEIAABCCgEECUChyKIAABCEAAAoiSOQABCEAAAhBQCCBKBQ5FEIAABCAAAUTJHIAABCAAAQgoBBClAociCEAAAhCAAKJkDkAAAhCAAAQUAohSgUMRBCAAAQhAAFEyByAAAQhAAAIKAUSpwKEIAhCAAAQggCiZAxCAAAQgAAGFAKJU4FAEAQhAAAIQQJTMAQhAAAIQgIBCAFEqcCiCAAQgAAEIIErmAAQgAAEIQEAhgCgVOBRBAAIQgAAEECVzAAIQgAAEIKAQQJQKHIogAAEIQAACiJI5AAEIQAACEFAIIEoFDkUQgAAEIAABRMkcgAAEIAABCCgEEKUChyIIQAACEIAAomQOQAACEIAABBQCiFKBQxEEIAABCEAAUTIHIAABCEAAAgoBRKnAoQgCEIAABCCAKJkDEIAABCAAAYXAHSXKy9/+OJjqiccfHTzPSQjcyQT+/eOHnfRuXv9+dfP39fFQvluHjtw+vXXw6Oqee+Pr2wWNH4RcvWG2nHPI7a+fL3bSu3m9O6ZbB9fjFsaz9liGuDpBLfSi9vjtWVGKFM9fuLS6fOUn89CcPvX0zrVnTp0010m9UOK6fKU7gfttnDh+ZFVD3pa+QyyWGF5/5+Lq6rU/Q5XB5xt//7P64PxLg2VjJ9/aHrephyW+qTas5a3FY4176DpZvGRB7S+iQ9dq52TRlQV3/8PPapc1U/bbN+eycpZ873vibDP5lBpHSejA4Wd28io9lrnMS8J+8KlPSja3q609JUqPHHdlfOtELWmefOGNSXlL36VlLYv9+Qufj6W76/zV7z7cda5/4t2Pv1i99van/dOd18cee2j15Uevds5NvXjg2PNTl6wuvfdylTcTQx23Fs9QjNq5kovqUD+1FtqhvjznJP9rV855qnbq3H/87OK76TnGspQwEWVn+iz/oqQg+9mItEruXpYQZaokrRJClHG2WJnFGvWPai+qQxmINEsttEPte87d+OXi9i76M0/VTp0lRTn3WJYYR0TZmT7LvrCIp0SEpXZ5lnhL9SV5p0oypW9EGWdWa6IsJYeYof2oxCJr7236yl+/em76IsMVS91+XWosc8cRURom1RyXWG6JlYwjRSJj/c4pStlpn3zxzbFQdp1PzQ9RRoStiLLUbcaYmf8od6H19xxrlpbM3LvK0vFHMrajnDFElDbGVa+yCKdGAKky6cdgiTu3j9BnyhsJT5+IMpBezfo709hr92jpRbUbzfpVzkI71F7qudJM5txVlo49lV243pszogwEF3q2yKZmaB6phHgssee0n9JPuNbbH6IMBJcXZSuLaiQSj5aUZanbriEbrzRCfetza+PpyRtRWke7wnWpv3MLIZw4/sjO4ZO3PjP59c7HNOwfHQnthGfvrbY5RJnCyCtJ4YAow2xYVpStLaqRSjzyLLSxtu+oFpc5br+WFryPYLdWat6Isstv1lcptxNFjqe3PxM59ZnEFLGEZKXtS++/El6an2uLMiUXbw4hWUQZSCwnyloyiJmVO5p7Z1mLTW3p14o7dyRT80aUucSd9VMk4NnxpbQvKXj6qCnK1Pgtn5XUhgpRRjqeuRBr+45aXVC1bOaUZc1dWc0PsNeMWxsbS1nKrhJRWohWuMa6m8y5nZgiG8+OrJYoU+KWoSmxsCPKOMlL8IytTR+19Net09F2r0hZbLs17a9qv4molUOJuGXnd+Dw+huT5KvbZK7I1xSW+Cxpyq7SK0rpo/Sj9rcqNfPNPNaPOuRIMgyORWbh2tQF0tJ2ag5WNiHm1PZDvf4zooxEUudBrOk78i5CU71tLlK5X3M31lfKYjvWxtT5WnxCv7VyyBXllMBz25f8p/oIjLxjUHO3HmIr/dyMKK07ptzbiQIwRTypC2QNUVp32pJbKUlKW4hSKKwfqfMg1PM8l1jsQr+y4G/uPsL5zeeSO5LQrnWxDdenPM+1266Rg1cuwsd6Wzt3/ljz9uaCKFNme+/aOUUpXVuEJtelisfSbkqblvYkTnmktLuuof9ElJHPnKIs8TusIMjU/6qQu8hGYqtVrQWxZIyb8faPrcLo19Nee8c2dYfrlZjEbhWyt49a80LjnlvWzI7SIgTP7wzHAFn6k7qpfVratQrN+uZB4rS2KddaH4gykppLlCUkYF3oYna7j7yL4GZLJeLYbC8ce2UT6lufU+VkadcbeyrLnF23NW/vHEGUlpkyco1FMKnSGumq6mlLHhappUiyFhdEGafKXKL0LqQh0tQFNdQbes6VtnXBHep77Jw3JuHi+WOX0rtK7/imskSUYzPId/6u3VH6cE3XKiHKFiQpmSLKON5ziNIrgRBlSUmGNr27hlC/tGi8jCQOz7/iShVUyHvseS5RjvVf8rx3brCjzBgFi2Ck+RJ/zJMR5mRVSx7ajjJFkrV5IMo43HOI0rvwSJQ1JCnt5uxMpH4LoglsPHxbiF84yqP0m451q/6fHp7SG6L0Mzf/uyhNMhndF6uaI8qUv8aVgGsv3ogyTovarKUn725D6tZcfLy7OImrpGi8cQTBeKUf6ks+uQ+vXEK/JWMJbXqfvbnUnKveXKbqNXPrNUUScyxaU+DGynNEudTHQMZyQZSRTO0555WARBh2TDHaO/PIyygszF5RlpS9Vy6bI9rKeHtzCeOxmVPrx3tSlAK11Z2lV5SWemEyzZU7ogzE6+/evRKQCPfiwhPJ2o88O+6+VJZe3HPGuU+qn1u/vPbrpVnWzm+z/WZEKUGlyEKun0sY0pf1YcmhH3fK7yX7da1xea5DlJFa7R2ld9FZerGMhOoeeQXTv1Xp3VX22/Fm6+1f60/mwNbBo6vUz8xqbVrKvHN2L76xa0qUKbdfNwdS5CGPM9v/SWTpR6ooW5WkcESUcTbVFqVntyTR3S2iLLUoe0XV2u3XODPjkcS4dejIav/D6++BjSV1jrxjInGWeMg3Ts315qApUQo8i2g0yEtL0xJ/2BWmSLLWZyU1logy0qkpSu/iLdHtxXfnkartyMtn7E2Ed4FveVfZJym5y6OmNL0c+7F6X4+Nr7c9rd7/AAAA//9FZFsjAAAMyElEQVTtnb+rHUUUx9fGVErwV2OlFuYhNiYW4dXWErGystH8A0G0EIUUiqSwEqKNWghCMKRSsLB6WOizCzGFdjb+CCHaRAV95z0OM9m7d/f8mrlzJ98tsnP3zpwfn1nme8+8uzf3/HdwDI0dZ155Z9jbv+6Oavfkk8PpUyeG3ZM7w+7BucYhif3c2ecPQ7lw8YooJMrj8kdviPpGdvrg0y+Ht9//fNbkM08/Nnz1yVuzfcZvPvLMy+NLK68vf/h6tTnbdDx/37g2/LZ/foWB5MKjz30m6bbVff78+dJw66cv1Dk8fPLN4d4HdlbGWXmvs7fiQHDBmpPA9EqX+5944fDafY+/uPKe58Lv350fbt+85jHhGkt5Ree0LqB7WhRKClYiOOuSWnedBeq1s2fWdXFfl8RNwqf5IFBTNHIAEMpEo+QcWBfuY8d3hoeefTMF2Wnrl69fMmU29yHCYjOad02xJIAU/7EHd8LEBUJpui3jB0lEx+qVRLNEpRkdc8kFeokdhDIRKjkP1gUzeuFO2bbTsrJZqjasi3xkVUmUrfl5Z2iJj8S+laHEtqRPRA4SP9Sn2YqSE3jv4uVBukXJYzRn3p6NqjIjhZLEPCouDRPuC6FkEsPQolDWXCgSibotq5AsCVpLVbw1R+9MeO8fCKV3BgqMLy2YUaIUJZSb+rtkPnUQykSjRaG8GypKyxYpzdrctivPqsV2KeabEktiYRVMCCXfSQ2eSTC//f5H1d/4NGl4BTNKKClmbyyavKf6QigTFQhlYlGrZRUP6cJvXeiXqlUPH2vOHp80Vsos92Pll9vwtC0xW/01v/U6l1gp0fQIVKRQUu6eWObYSd6DUCZKJYWypW3AlPHmW1bRkApZy9ytuXtmTSs8EEoP7Q2NJdGkI+rvmVaBkgglvvX68uFczf1TUpjGfrf18ZBS24BjPpt6bdkapVgl266cUw0f7MtyJjG/ffOq6fEYiz/phwyyDaG0EG5ozN7h1uzR8z0e4bQs1hKhJBGmQxObJRbvlKCiTARL8rdWNhSdRhRSNu23rBVVrapIIyhRtIkJHZZnSqUxaD58QSilVLekn/WLQJYv1EiFkr7Nqo3r1x8+rkocQplwlxRK8mKtbDaxYCcq5VrWRVj7wcH6IUUjKCUolaw0pfdUrTkqwU9rc6v/RqlNVitMZF+7QGqEkuxL+lM/OizCfTTS9i+EMnHT3gdppKxlXXQ2vWDLstP1qi1e1g8pWlHWUZD3jq40pfeU9Z5thZuc8BY8R6lJRtpXI5hacZII3/jvn5IxnJs2Hh5nOUMoE7VWhZIi3MaFJ5FdbVm3XWmBv/8J/c+03frpkumn2KSV12qG5a5Y2Y0jktxTEMoxtQ5fS8VSK0wS0RsLJeGVfKGEp2FqPL8XeYZQJpqlhdJaRVGELS7YiZy+Za3w9J58I6SVl8+LfnSEWEruKQilfm62coRUnDR/G7QKJX0B6cyr74o51hBLCGWajpaFsvSC7V14JdUJk/b6Yju1zhJBqRVL7sfzwYvsSPKCUObEO25LxamGUBJmaTw8JaXFEkLJpPV/q04j5S3rwkMetN/2lEdl/6KRJa5tE8rSH1I08zTu62EpuZ+s96vmg9M4p029vqu+zDOGLBUmTTVhrSg5NumWMPcvKZYQSqZcRyhrVAEpI1nLs9iSB8mCm0eyLduuHLNWKImn5Th2/KnJ/zJsyZaVp2TeIJRL9Dt6X7L9WlMoCa1WLDXxaaYOQplolWKcPBy1rAsb25EscNx36ewVSbKvqR4i/C3lVOJ9yTYl+fV8ENIKMudpFTPJfWS1rbknOI9Nn5upKCWCRbA026ASuBK/mkXSW1FyzC2IJYSSZ6NORUneIsRCssilzKZb1kUwt6aNIyL33H+ttkbEPB+ELAJj9SeZO+s9Ysmj1lyu89OMUEoEhpLQiNa6pPm6dOtVI86SPKTbpRJbnAudNXHm49a1IZSJTOR9l6xOt6yLW25NstDl/blNVY/1cQm2wWftghiRN/uufZbmahUXykdauXLungpW4suai5QV59HCeeuEUvu4xhxkadWmESCJuEmFkmKX2OMcI9mQTQglk439gJasTrciKysSTDrue3z++ULyefsP+l3Ro59+nI5MflUr1JE5y6OM6ykRFvJmFReOVCMyHl8SP1b7EtucbyvnZoRSKlqRYiDxqfUnETaNUEqrXr6htPHyuKkzhDJRqVlRklfrIpQinm7RNmF+RAljbpPa2sWwVL7juEq9lm6/eqo8ip380I8q3PvAnfM4zsv7wUMyf9Y5k9ge57Pp180IpUYQIsRAIpI0ORpRo/7RQkk2NWyovzZmGjN1QCgTldpC6V1QU+T1W9pqcptzzelKBSBii5l3CvjbsMSQjohtc+n8WYWSY8/ZedtLOyZe+80IJSUiERlO2CMGUpEkX5ptV+ovycESuyZmisPig8blB4Qy0agtlOTZWxWk6Ou1pItsHpE1T6qujj04X1nlfqRt6//OId1+teYrjd/bTyr4VqH0xjc1Xhrz1FjJtaaEskblpBEci9iUEkqaTE3s1N8SP43jA0LJJOr+jTJ53S6xtIgk5WqtsKz+cr5TbasASLdfPTlPxRt5TcPUyikyXrZ1VwklJS0RGobDZxKE3ZM7w+6pE3zpjjMJ8N7+NdX//0gGtNUkjZHE7xGwmmIJoaQZPTo2UVGy75YWJI5pfNaIRD7WU12VWhw9W8HbXlVqmLZ0X2rizu8/abupipKC1laVU4nS3zAPbe1fn3pbdM0qZqWFkoKX+MiTtC7ymxTKPH5veyl/ybO03hjy8Uvx5H257REUtlHqbBVJiseal6byseRtrXI1LKy5W/KRjJGKPNuCUDKJDZ21VVN0mFaRpDgkIuaxz7lK/HBfOlsWZwhlTjCubZkL8t7awkoxeQXLKkhevxT73GEVAY1Qkv9W5tTC08pojrv1vbuuomRQmxJLr4hJBMzrgxlJfHFfOmu3kiGUOb24tlUoKYJWFlaKxbK40jg+PLmUXhhrbL9GcGAbnrN1HiGUHuqBY2uLZYSAScQrwg9h1m5Tax+rgVAG3syZKY9QshmPyLAN65mqJsmzfEv2rTlYF/aleMbvW6tdbVVJfq0sxjFrX2u3W3P7EMqcRgPt0oJJAnLu7Jm1XwbSIKgplBRXSbGEUGpmXt43QijJGy2udFgfZzgcrPzHs7COXVmFqJZQeoTAUvFSFXv75tUq82kR8/H8efiMbXlfW3hrfDb3ZZ51wZcSy6jqjuOuLZTkV8tGmjOEkmc19hwllBxVacGMqiA5Xjp7KqjSiyLHWXP7lX162eR2ptqRcwmhnCLcyDUSBTouXLxijiiyghwHsQmhpBhKiCWEcjy7Ma+jhTKPKko0aUGlh/n5l19yHxFt6yJbq5rkHK1Vb0TFxhWm9zd4KRY6IrbLmQudrXOY24hql/7wtDUV5RRQfj6S3vv24FlJOvayR0L4MRG6fvrgGUt61pKOdc9bHr7p/IeFfM7M3DOfc+OW3pP4zm28drDdPHd8fOmb4d9//p3rMty49dewZGdsQBvneLz29VJ8rcWjzW+uPwsn9aEFd93BokjvL/2O6Dob0ussANL+eb9Swp37yNs5v/y6pB39s2p5LDyX+W/1siBSbPyLRSV55fFIeJTsE816HOtWC+U4GbwGARAAARAAgWgCEMpoorAHAiAAAiDQFQEIZVfTiWRAAARAAASiCUAoo4nCHgiAAAiAQFcEIJRdTSeSAQEQAAEQiCYAoYwmCnsgAAIgAAJdEYBQdjWdSAYEQAAEQCCaAIQymijsgQAIgAAIdEUAQtnVdCIZEAABEACBaAIQymiisAcCIAACINAVAQhlV9OJZEAABEAABKIJQCijicIeCIAACIBAVwQglF1NJ5IBARAAARCIJgChjCYKeyAAAiAAAl0RgFB2NZ1IBgRAAARAIJoAhDKaKOyBAAiAAAh0RQBC2dV0IhkQAAEQAIFoAhDKaKKwBwIgAAIg0BUBCGVX04lkQAAEQAAEoglAKKOJwh4IgAAIgEBXBCCUXU0nkgEBEAABEIgmAKGMJgp7IAACIAACXRGAUHY1nUgGBEAABEAgmgCEMpoo7IEACIAACHRFAELZ1XQiGRAAARAAgWgCEMpoorAHAiAAAiDQFQEIZVfTiWRAAARAAASiCUAoo4nCHgiAAAiAQFcEIJRdTSeSAQEQAAEQiCYAoYwmCnsgAAIgAAJdEYBQdjWdSAYEQAAEQCCaAIQymijsgQAIgAAIdEUAQtnVdCIZEAABEACBaAIQymiisAcCIAACINAVAQhlV9OJZEAABEAABKIJQCijicIeCIAACIBAVwQglF1NJ5IBARAAARCIJvA/EzWOPi2DUYEAAAAASUVORK5CYII=" alt="Skillcase" class="entry-logo">
+    <h1>The lead <em>manifest</em>.</h1>
+    <p class="entry-subtitle">
+      Clean, qualify and prioritize your B2C leads with an AI-assisted sales workflow —
+      every judgment traceable, every draft ready to send.
     </p>
-    <div class="upload-box">
+    <div class="entry-box">
       <h2>Upload your lead dataset</h2>
       <p>Upload a CSV lead sheet or use the bundled 30-lead sample dataset.</p>
-      <div class="upload-actions">
-        <label class="upload-file-label">
+      <div class="entry-actions">
+        <label class="btn-small primary" style="height:40px; padding:0 18px; cursor:pointer;">
           Upload CSV
           <input id="csvInput" type="file" accept=".csv" style="display:none;">
         </label>
-        <button id="useSampleBtn" class="secondary upload-sample">Use sample dataset</button>
+        <button id="useSampleBtn" class="secondary" type="button">Use sample dataset</button>
       </div>
-      <div id="loadStatus" class="upload-status">No dataset loaded yet.</div>
+      <div id="loadStatus" class="entry-status">No dataset loaded yet.</div>
     </div>
-    <button id="runBtn" class="upload-run" disabled>Run pipeline</button>
-    <div class="upload-hint">The lead workspace will appear after the pipeline finishes processing your dataset.</div>
+    <div style="margin-top:24px;">
+      <button id="runBtn" disabled style="min-width:170px;">Run pipeline</button>
+    </div>
+    <div class="entry-foot">The lead workspace will appear once the pipeline finishes processing your dataset.</div>
   </div>
 </div>
 
+<!-- ================= WORKSPACE ================= -->
 <div id="workspaceScreen" style="display:none;">
-<div class="wrap">
+<div class="workspace">
+
   <header class="masthead">
-    <div>
-      <h1>Skillcase Lead Manifest</h1>
-      <p class="sub">Turns 30 raw inbound conversations into a triaged, prioritized outreach list — cleaned, classified, enriched and reviewed automatically.</p>
+    <img src="data:image/png;base64,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" alt="Skillcase" class="masthead-logo">
+    <div class="masthead-actions">
+      <div class="search-wrap">
+        <svg class="icon" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+        <input id="leadSearch" type="search" placeholder="Search leads…" autocomplete="off">
+      </div>
+      <button id="downloadBtn" class="secondary" disabled>
+        <svg class="icon" viewBox="0 0 16 16"><path d="M8 2v8m0 0l-3-3m3 3l3-3M3 13h10"/></svg>Download CSV
+      </button>
     </div>
-    <div class="manifest-no" id="recordCount">30 records logged (sample)</div>
   </header>
 
-  
-  <div class="controls">
-    <button id="downloadBtn" class="secondary" disabled>
-      Download CSV
-    </button>
+  <div class="workspace-controls">
+    <nav class="tabs" id="workspaceTabs" role="tablist" aria-label="Lead views">
+      <button class="tab" role="tab" data-filter="all" aria-selected="true"><span class="t-label">All Leads</span><span class="count" id="countAll"></span></button>
+      <button class="tab" role="tab" data-filter="review"><span class="t-label">Needs Human Review</span><span class="count" id="countReview"></span></button>
+      <button class="tab" role="tab" data-filter="contacted"><span class="t-label">Contacted Leads</span><span class="count" id="countContacted"></span></button>
+      <button class="tab" role="tab" data-filter="removed"><span class="t-label">Removed Leads</span><span class="count" id="countRemoved"></span></button>
+      <span class="tab-tick" id="tabTick" aria-hidden="true"></span>
+    </nav>
+
+    <div class="list-controls">
+      <select id="priorityFilter" aria-label="Filter by priority">
+        <option value="all">Filter: All</option>
+        <option value="high">Filter: High</option>
+        <option value="medium">Filter: Medium</option>
+        <option value="low">Filter: Low</option>
+      </select>
+      <select id="prioritySort" aria-label="Sort leads">
+        <option value="desc">High → Low</option>
+        <option value="asc">Low → High</option>
+      </select>
+    </div>
   </div>
 
-  <section class="block" id="problemsSection" style="display:none;">
-    <h2>What the pipeline flagged on its own</h2>
-    <p class="desc">Real problems in this dataset that the system caught rather than silently guessing through.</p>
-    <div id="problemsList"></div>
-  </section>
+  <div class="col-head" id="colHead" aria-hidden="true">
+    <span></span>
+    <span>ID</span>
+    <span>Name</span>
+    <span class="h-priority">Priority</span>
+    <span class="h-status">Status</span>
+    <span class="h-actions">Actions</span>
+  </div>
 
-  <section class="block" id="resultsSection" style="display:none;">
-    <h2>Your leads</h2>
-    <p class="desc">
-      Prioritized leads ready for action. Expand a lead to view intelligence,
-      recommended next steps and personalized outreach.
-    </p>
-    <div class="workspace-tabs" id="workspaceTabs">
-      <button data-filter="all" class="active">All Leads</button>
-      <button data-filter="review">Needs Human Review</button>
-      <button data-filter="removed">Removed Leads</button>
-      <button data-filter="completed">Completed Leads</button>
-    </div>
-    
-    <div class="lead-controls">
-      <input
-        id="leadSearch"
-        type="search"
-        placeholder="Search leads..."
-        autocomplete="off"
-      >
-    
-      <select id="priorityFilter">
-        <option value="all">Show: All</option>
-        <option value="high">Show: High</option>
-        <option value="medium">Show: Medium</option>
-        <option value="low">Show: Low</option>
-      </select>
-    
-      <select id="prioritySort">
-        <option value="desc">Priority: High → Low</option>
-        <option value="asc">Priority: Low → High</option>
-      </select>
-    </div>
-    <div class="ledger" id="ledger"></div>
-  </section>
+  <div class="ledger" id="ledger"></div>
 
+  <details class="qc-fold" id="qcFold">
+    <summary>
+      <span class="qc-kicker">QC · Auto-detected</span>
+      <span class="qc-title">What the pipeline flagged</span>
+      <span class="qc-count" id="qcFoldCount"></span>
+      <span class="qc-caret">›</span>
+    </summary>
+    <div class="qc-body" id="problemsList"></div>
+  </details>
 
   <footer>
-    Classification, enrichment and outreach drafting are generated by Gemini at run time, through this app's own server &mdash; nothing here is pre-written. Rule-based steps (cleaning, deduplication, priority scoring, contradiction checks) run identically every time.
+    Classification, enrichment and outreach drafting are generated by Gemini at run time, through this
+    app's own server — nothing here is pre-written. Rule-based steps (cleaning, deduplication, priority
+    scoring, contradiction checks) run identically every time.
   </footer>
 </div>
 </div>
+
+<div class="toast" id="skillcaseToast" role="status"></div>
+
 <script>
-  window.createSkillcaseGlobe = function () {
-    const canvas = document.getElementById("cobeGlobe");
+/* =========================================================================
+   Original rotating globe — preserved verbatim.
+   ========================================================================= */
+window.createSkillcaseGlobe = function () {
+  const canvas = document.getElementById("cobeGlobe");
 
-    if (!canvas) {
-      console.error("Globe canvas not found");
-      return null;
+  if (!canvas) {
+    console.error("Globe canvas not found");
+    return null;
+  }
+
+  const ctx = canvas.getContext("2d");
+  const container = canvas.parentElement;
+
+  let animationId;
+  let rotation = 0;
+
+  function resize() {
+    const size = Math.min(container.clientWidth, 430);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+
+    canvas.style.width = size + "px";
+    canvas.style.height = size + "px";
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  resize();
+
+  function draw() {
+    const size = Math.min(container.clientWidth, 430);
+    const cx = size / 2;
+    const cy = size / 2;
+    const radius = size * 0.40;
+
+    ctx.clearRect(0, 0, size, size);
+
+    const latSteps = 28;
+    const lonSteps = 56;
+
+    for (let lat = -90; lat <= 90; lat += 6) {
+      const latRad = lat * Math.PI / 180;
+      const cosLat = Math.cos(latRad);
+      const sinLat = Math.sin(latRad);
+
+      for (let lon = 0; lon < 360; lon += 6) {
+        const lonRad =
+          (lon * Math.PI / 180) + rotation;
+
+        const x3d = cosLat * Math.sin(lonRad);
+        const y3d = sinLat;
+        const z3d = cosLat * Math.cos(lonRad);
+
+        // Only draw the visible half of the sphere
+        if (z3d <= 0) continue;
+
+        const x = cx + radius * x3d;
+        const y = cy - radius * y3d;
+
+        // Smaller dots toward the edge
+        const depth = z3d;
+        const dotSize = 1.1 + depth * 1.3;
+        const alpha = 0.25 + depth * 0.75;
+
+        ctx.beginPath();
+        ctx.arc(x, y, dotSize, 0, Math.PI * 2);
+
+        ctx.fillStyle =
+          `rgba(11, 42, 102, ${alpha})`;
+
+        ctx.fill();
+      }
     }
 
-    const ctx = canvas.getContext("2d");
-    const container = canvas.parentElement;
+    rotation += 0.006;
 
-    let animationId;
-    let rotation = 0;
+    animationId = requestAnimationFrame(draw);
+  }
 
-    function resize() {
-      const size = Math.min(container.clientWidth, 430);
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.style.opacity = "1";
+  draw();
 
-      canvas.width = size * dpr;
-      canvas.height = size * dpr;
-
-      canvas.style.width = size + "px";
-      canvas.style.height = size + "px";
-
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-
-    resize();
-
-    function draw() {
-      const size = Math.min(container.clientWidth, 430);
-      const cx = size / 2;
-      const cy = size / 2;
-      const radius = size * 0.40;
-
-      ctx.clearRect(0, 0, size, size);
-
-      /*
-       * Dotted globe
-       */
-      const latSteps = 28;
-      const lonSteps = 56;
-
-      for (let lat = -90; lat <= 90; lat += 6) {
-        const latRad = lat * Math.PI / 180;
-        const cosLat = Math.cos(latRad);
-        const sinLat = Math.sin(latRad);
-
-        for (let lon = 0; lon < 360; lon += 6) {
-          const lonRad =
-            (lon * Math.PI / 180) + rotation;
-
-          const x3d = cosLat * Math.sin(lonRad);
-          const y3d = sinLat;
-          const z3d = cosLat * Math.cos(lonRad);
-
-          // Only draw the visible half of the sphere
-          if (z3d <= 0) continue;
-
-          const x = cx + radius * x3d;
-          const y = cy - radius * y3d;
-
-          // Smaller dots toward the edge
-          const depth = z3d;
-          const dotSize = 1.1 + depth * 1.3;
-          const alpha = 0.25 + depth * 0.75;
-
-          ctx.beginPath();
-          ctx.arc(x, y, dotSize, 0, Math.PI * 2);
-
-          ctx.fillStyle =
-            `rgba(11, 42, 102, ${alpha})`;
-
-          ctx.fill();
-        }
+  return {
+    destroy() {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
       }
 
-      rotation += 0.006;
-
-      animationId = requestAnimationFrame(draw);
+      ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
     }
-
-    canvas.style.opacity = "1";
-    draw();
-
-    return {
-      destroy() {
-        if (animationId) {
-          cancelAnimationFrame(animationId);
-        }
-
-        ctx.clearRect(
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
-      }
-    };
   };
+};
 </script>
 
 <script>
-  let STATE = {
-    primaries: [],
-    duplicateGroups: [],
-    leadAudit: [],
-    classifications: {},
-    enrichments: {},
-    outreach: {},
-    qc: {}
-  };
-  
-  let currentTab = 'all';
-  let priorityFilter = 'all';
-  let sortOrder = 'desc';
-  let searchTerm = '';
-  
-  let contactedLeads = JSON.parse(
-    localStorage.getItem('skillcase_contacted_leads') || '{}'
-  );
-  let completingLeads = {};
+/* =========================================================================
+   SKILLCASE — workspace logic (state flow unchanged; rendering updated)
+   ========================================================================= */
 
-  let UPLOADED_LEADS = null;
+let STATE = {
+  primaries: [],
+  duplicateGroups: [],
+  leadAudit: [],
+  classifications: {},
+  enrichments: {},
+  outreach: {},
+  qc: {}
+};
 
-// --- CSV upload: tolerant of header naming/order differences ---
+let currentTab = 'all';
+let priorityFilter = 'all';
+let sortOrder = 'desc';
+let searchTerm = '';
+
+let contactedLeads = JSON.parse(localStorage.getItem('skillcase_contacted_leads') || '{}');
+let completingLeads = {};
+let UPLOADED_LEADS = null;
+let regenerating = {};
+let skillcaseGlobe = null;
+let openMenuRow = null;
+
+const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// --- CSV upload (unchanged logic) ----------------------------------------
 const FIELD_ALIASES = {
   lead_id: ['lead_id','leadid','id'],
   name: ['name','full_name','fullname','lead_name'],
@@ -698,7 +813,6 @@ function buildHeaderMap(headers) {
   return map;
 }
 function parseCSVText(text) {
-  // Minimal RFC4126-ish CSV parser: handles quoted fields with embedded commas/newlines/escaped quotes.
   const rows = [];
   let row = [], field = '', inQuotes = false;
   for (let i = 0; i < text.length; i++) {
@@ -733,111 +847,73 @@ function parseCSVText(text) {
 document.getElementById('csvInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-
   const text = await file.text();
   const parsed = parseCSVText(text);
   const status = document.getElementById('loadStatus');
   const runBtn = document.getElementById('runBtn');
-
   if (!parsed.length) {
     status.textContent = 'Could not read any rows from that file — check it has a header row.';
     status.classList.add('err');
-
     runBtn.disabled = true;
     return;
   }
-
   UPLOADED_LEADS = parsed;
-
   status.classList.remove('err');
-  status.textContent =
-    `Loaded ${parsed.length} leads from "${file.name}". Click "Run pipeline" to process them.`;
-
-  document.getElementById('recordCount').textContent =
-    `${parsed.length} records logged (uploaded)`;
-
-  // Enable pipeline only after a valid dataset has been loaded
+  status.textContent = `Loaded ${parsed.length} leads from "${file.name}". Click "Run pipeline" to process them.`;
   runBtn.disabled = false;
 });
+
 document.getElementById('useSampleBtn').addEventListener('click', () => {
   UPLOADED_LEADS = null;
-
   document.getElementById('csvInput').value = '';
-
   const status = document.getElementById('loadStatus');
-  const runBtn = document.getElementById('runBtn');
-
   status.classList.remove('err');
   status.textContent = 'Using the bundled 30-lead sample dataset.';
-
-  document.getElementById('recordCount').textContent =
-    '30 records logged (sample)';
-
-  // Sample dataset is valid input, so enable the pipeline
-  runBtn.disabled = false;
+  document.getElementById('runBtn').disabled = false;
 });
 
-function setStage(name, status) {
-  const el = document.querySelector(`.stage[data-stage="${name}"]`);
-
-  // The pipeline strip is no longer displayed in the main workspace.
-  if (!el) return;
-
-  el.classList.remove('active', 'done', 'error');
-
-  if (status) {
-    el.classList.add(status);
+// --- Screens (globe lifecycle) ---------------------------------------------
+function showProcessingScreen() {
+  document.getElementById('uploadScreen').style.display = 'none';
+  document.getElementById('workspaceScreen').style.display = 'none';
+  document.getElementById('processingScreen').style.display = 'flex';
+  if (skillcaseGlobe) {
+    skillcaseGlobe.destroy();
+    skillcaseGlobe = null;
   }
+  requestAnimationFrame(() => {
+    if (!skillcaseGlobe && window.createSkillcaseGlobe) {
+      skillcaseGlobe = window.createSkillcaseGlobe();
+    }
+  });
 }
-function log(msg, isErr) {
-  const el = document.getElementById('runlog');
+function showWorkspace() {
+  document.getElementById('processingScreen').style.display = 'none';
+  document.getElementById('uploadScreen').style.display = 'none';
+  document.getElementById('workspaceScreen').style.display = 'block';
 
-  if (el) {
-    el.textContent = msg;
-    el.classList.toggle('err', !!isErr);
+  if (skillcaseGlobe) {
+    skillcaseGlobe.destroy();
+    skillcaseGlobe = null;
   }
 
-  const processingMessage =
-    document.getElementById('processingMessage');
+  document.getElementById('downloadBtn').disabled = !STATE.primaries.length;
 
-  if (processingMessage) {
-    processingMessage.textContent = msg;
-  }
+  requestAnimationFrame(() => {
+    document.getElementById('ledger').classList.add('stagger');
+    positionTabTick(false);
+  });
+  updateCounts();
+  renderWorkspace();  // rows must be visible on first paint, without a tab click
 }
+document.getElementById('backToUploadBtn').addEventListener('click', () => {
+  document.getElementById('processingScreen').style.display = 'none';
+  document.getElementById('workspaceScreen').style.display = 'none';
+  document.getElementById('uploadScreen').style.display = 'flex';
+  clearPipelineError();
+});
 
-function updateProcessingProgress(step, stage, message) {
-  const percent = Math.round((step / 6) * 100);
-
-  document.getElementById('progressStep').textContent = `${step} / 6`;
-  document.getElementById('progressPercent').textContent = `${percent}%`;
-  document.getElementById('processingStage').textContent = stage;
-  document.getElementById('processingMessage').textContent = message;
-
-  const progressFill = document.getElementById('progressFill');
-
-  if (progressFill) {
-    progressFill.style.width = `${percent}%`;
-  }
-}
-async function postJSON(url, body) {
-  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
-  let data = null;
-  try { data = await res.json(); } catch { /* non-JSON error page */ }
-  if (!res.ok) {
-    const detail = (data && data.error) ? data.error : `HTTP ${res.status}`;
-    throw new Error(detail);
-  }
-  return data;
-}
-
-const STAGE_WEIGHTS = {
-  clean: 1,
-  classify: 2,
-  enrich: 3,
-  prioritize: 4,
-  outreach: 5,
-  qc: 6,
-};
+// --- Progress (real, streamed) ----------------------------------------------
 const STAGE_LABELS = {
   clean: 'Cleaning and deduplicating',
   classify: 'Classifying relevance with AI',
@@ -848,39 +924,31 @@ const STAGE_LABELS = {
   done: 'Processing complete',
 };
 
+function updateProcessingProgress(step, stage, message) {
+  const percent = Math.round((Math.min(step, 6) / 6) * 100);
+  document.getElementById('progressStep').textContent = `${Math.min(step, 6)} / 6`;
+  document.getElementById('progressPercent').textContent = `${percent}%`;
+  document.getElementById('processingStage').textContent = stage === STAGE_LABELS.done ? 'Processing leads' : stage;
+  document.getElementById('processingMessage').textContent = message;
+  const fill = document.getElementById('progressFill');
+  if (fill) fill.style.width = `${percent}%`;
+}
+
 function showPipelineError(message) {
   const box = document.getElementById('processingError');
   const actions = document.getElementById('processingActions');
-
-  if (box) {
-    box.textContent = 'Pipeline stopped: ' + message;
-    box.classList.add('show');
-  }
-
-  if (actions) {
-    actions.classList.add('show');
-  }
-
-  log('Pipeline stopped: ' + message, true);
+  if (box) { box.textContent = 'Pipeline stopped: ' + message; box.classList.add('show'); }
+  if (actions) actions.classList.add('show');
 }
-
 function clearPipelineError() {
   const box = document.getElementById('processingError');
   const actions = document.getElementById('processingActions');
-
-  if (box) {
-    box.classList.remove('show');
-    box.textContent = '';
-  }
-
-  if (actions) {
-    actions.classList.remove('show');
-  }
+  if (box) { box.classList.remove('show'); box.textContent = ''; }
+  if (actions) actions.classList.remove('show');
 }
 
 function applyStagePayload(stage, payload) {
   if (!payload) return;
-
   if (stage === 'clean') {
     STATE.primaries = payload.primaries || [];
     STATE.duplicateGroups = payload.duplicate_groups || [];
@@ -896,54 +964,49 @@ function applyStagePayload(stage, payload) {
   }
 }
 
-// Drives the whole pipeline over ONE streamed request so the progress
-// bar reflects real backend stage completions — never simulated progress.
+// --- Initial hydration ----------------------------------------------------------------
+// A completed run lives server-side for this session; restore it on page load
+// so a refresh lands directly in a rendered All Leads view (18 rows) with no
+// interaction — no simulated clicks, no re-running the pipeline.
+(async function hydrateWorkspaceOnLoad() {
+  try {
+    const res = await fetch('/api/workspace/state');
+    if (res.status === 204) return;              // no completed run yet
+    if (!res.ok) return;
+    const data = await res.json();
+    const result = data && data.result;
+    if (!result || !(result.primaries || []).length) return;
+    STATE.primaries = result.primaries || STATE.primaries;
+    STATE.duplicateGroups = result.duplicate_groups || STATE.duplicateGroups;
+    STATE.leadAudit = result.lead_audit || STATE.leadAudit;
+    STATE.classifications = result.classifications || STATE.classifications;
+    STATE.enrichments = result.enrichments || STATE.enrichments;
+    STATE.outreach = result.outreach || STATE.outreach;
+    STATE.qc = result.qc || STATE.qc;
+    UPLOADED_LEADS = null;
+    showWorkspace();
+  } catch { /* stay on the upload screen; nothing to hydrate */ }
+})();
+
+// --- Pipeline runner (SSE) ----------------------------------------------------
 async function runPipeline() {
   const runBtn = document.getElementById('runBtn');
-
   runBtn.disabled = true;
   document.getElementById('downloadBtn').disabled = true;
-
   clearPipelineError();
-
-  // Show the dedicated processing screen
   showProcessingScreen();
-
-  // Reset pipeline stages
-  ['clean', 'classify', 'enrich', 'prioritize', 'outreach', 'qc']
-    .forEach(s => setStage(s, null));
 
   let completedStages = 0;
 
-  function progressFor(step) {
-    return Math.round((Math.min(step, 6) / 6) * 100);
-  }
-
   function handleStageEvent(event) {
-    const stage = event.stage;
-    const status = event.status;
-
-    setStage(stage, status);
-
-    if (status === 'active') {
-      log(event.message || STAGE_LABELS[stage] || stage + '...');
-      updateProcessingProgress(
-        completedStages,
-        STAGE_LABELS[stage] || stage,
-        event.message || STAGE_LABELS[stage] || 'Working...'
-      );
+    if (event.status === 'active') {
+      updateProcessingProgress(completedStages, STAGE_LABELS[event.stage] || event.stage, event.message || 'Working…');
       return;
     }
-
-    if (status === 'done' && stage !== 'done') {
+    if (event.status === 'done' && event.stage !== 'done') {
       completedStages += 1;
-      log(event.message || (STAGE_LABELS[stage] + ' done.'));
-      updateProcessingProgress(
-        completedStages,
-        STAGE_LABELS[stage] + ' — done',
-        event.message || 'Stage complete.'
-      );
-      applyStagePayload(stage, event.payload);
+      updateProcessingProgress(completedStages, STAGE_LABELS[event.stage] + ' — done', event.message || 'Stage complete.');
+      applyStagePayload(event.stage, event.payload);
     }
   }
 
@@ -952,126 +1015,802 @@ async function runPipeline() {
     STATE.duplicateGroups = result.duplicate_groups || STATE.duplicateGroups;
     STATE.leadAudit = result.lead_audit || STATE.leadAudit;
     STATE.classifications = result.classifications || STATE.classifications;
-    STATE.enrichments = result.enrichments || STATE.enrichments;
-    STATE.outreach = result.outreach || STATE.outreach;
-    STATE.qc = result.qc || STATE.qc;
+    STATE.enrichments = result.enrichments || STATE.enrichments;  STATE.outreach = result.outreach || STATE.outreach;
+  STATE.qc = result.qc || STATE.qc;
 
-    updateProcessingProgress(6, 'Processing complete', 'Your lead workspace is ready.');
+    // Register this completed run as the server's current state so lead_id
+    // regeneration resolves against exactly what the UI is showing.
+    postJSON('/api/workspace/result', { result }).catch(() => {});
 
-    const totalAccounted = STATE.leadAudit
-      ? STATE.leadAudit.length
-      : STATE.primaries.length;
-
-    const runtime = result.summary ? ` in ${result.summary.runtime_seconds}s` : '';
-
-    log(
-      `Done — ${STATE.primaries.length} primary leads processed${runtime} ` +
-      `(${totalAccounted} total records accounted for, ` +
-      `${STATE.duplicateGroups.length} duplicate group(s) resolved).`
-    );
-
-    document.getElementById('resultsSection').style.display = 'block';
-    document.getElementById('downloadBtn').disabled = false;
-
-    // Open the All Leads tab by default
-    currentTab = 'all';
-
-    document.querySelectorAll('#workspaceTabs button').forEach(button => {
-      button.classList.toggle(
-        'active',
-        button.dataset.filter === 'all'
-      );
-    });
-
-    // Render the workspace and move away from the processing screen
-    renderWorkspace();
-    showWorkspace();
+    updateProcessingProgress(6, STAGE_LABELS.done, 'Your lead workspace is ready.');
+    setTimeout(showWorkspace, REDUCED_MOTION ? 0 : 350);
   }
 
   try {
-    // Reads the server-sent-event stream from /api/pipeline/stream.
-    // (EventSource cannot POST, so the stream is consumed manually.)
     const res = await fetch('/api/pipeline/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(UPLOADED_LEADS ? { leads: UPLOADED_LEADS } : {}),
     });
-
     if (!res.ok || !res.body) {
       let detail = `HTTP ${res.status}`;
-      try {
-        const data = await res.json();
-        if (data && data.error) detail = data.error;
-      } catch { /* non-JSON error page */ }
+      try { const data = await res.json(); if (data && data.error) detail = data.error; } catch {}
       throw new Error(detail);
     }
-
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
     let finished = false;
-
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
-
       buffer += decoder.decode(value, { stream: true });
-
       let idx;
       while ((idx = buffer.indexOf('\n\n')) !== -1) {
         const rawEvent = buffer.slice(0, idx);
         buffer = buffer.slice(idx + 2);
-
-        const dataLine = rawEvent
-          .split('\n')
-          .find(line => line.startsWith('data:'));
-
+        const dataLine = rawEvent.split('\n').find(l => l.startsWith('data:'));
         if (!dataLine) continue;
-
         let event;
-        try {
-          event = JSON.parse(dataLine.slice(5).trim());
-        } catch {
-          continue;
-        }
-
-        if (event.stage === 'error') {
-          throw new Error(event.message || 'Unknown pipeline error.');
-        }
-
+        try { event = JSON.parse(dataLine.slice(5).trim()); } catch { continue; }
+        if (event.stage === 'error') throw new Error(event.message || 'Unknown pipeline error.');
         handleStageEvent(event);
-
         if (event.stage === 'done' && event.status === 'done' && event.payload) {
           finishFromResult(event.payload);
           finished = true;
         }
       }
     }
-
-    if (!finished) {
-      throw new Error('The pipeline stream ended before the run completed.');
-    }
-
+    if (!finished) throw new Error('The pipeline stream ended before the run completed.');
   } catch (err) {
-
     console.error('Pipeline error:', err);
+    showPipelineError(err && err.message ? err.message : String(err));
+  } finally {
+    runBtn.disabled = false;
+    // An aborted/failed run must not leave the workspace export dead.
+    if (STATE.primaries.length) document.getElementById('downloadBtn').disabled = false;
+  }
+}
+document.getElementById('runBtn').addEventListener('click', runPipeline);
 
-    document.querySelectorAll('.stage').forEach(s => {
-      if (!s.classList.contains('done')) {
-        s.classList.add('error');
+// --- Helpers -------------------------------------------------------------------
+function escapeHTML(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+function auditRecord(id) { return (STATE.leadAudit || []).find(a => a.lead_id === id); }
+
+function isRemovedLead(p) {
+  const cls = STATE.classifications[p.lead_id] || {};
+  const audit = auditRecord(p.lead_id);
+  if (audit && audit.status === 'merged') return true;
+  if (cls.relevant === false && !(audit && audit.requires_human_review)) return true;
+  return false;
+}
+function needsHumanReview(p) {
+  if (isRemovedLead(p)) return false;
+  const audit = auditRecord(p.lead_id);
+  const qcFlags = STATE.qc[p.lead_id] || [];
+  return Boolean((audit && audit.requires_human_review) || qcFlags.length > 0);
+}
+function priorityValue(band) { return { High: 3, Medium: 2, Low: 1 }[band] || 0; }
+function isContacted(p) { return Boolean(contactedLeads[p.lead_id]); }
+
+function getActiveLeads() {
+  return STATE.primaries.filter(p => {
+    const cls = STATE.classifications[p.lead_id] || {};
+    return cls.relevant === true && !isRemovedLead(p) && !needsHumanReview(p) && !isContacted(p);
+  });
+}
+function getReviewLeads() {
+  return STATE.primaries.filter(p => needsHumanReview(p) && !isContacted(p));
+}
+function getContactedLeads() {
+  return STATE.primaries.filter(p => isContacted(p));
+}
+function getFlaggedDuplicates() {
+  // Flagged conflicting duplicates (e.g. L028 -> L001): deliberately excluded
+  // from primaries by clean_and_dedupe, so they are never classified,
+  // enriched or scored. They are surfaced as review items so every source
+  // record stays reachable in the UI.
+  return (STATE.leadAudit || []).filter(a => a.status === 'flagged');
+}
+function getRemovedLeads() {
+  const removed = [];
+  const seen = new Set();
+  (STATE.leadAudit || []).forEach(a => {
+    if (a.status === 'merged' && !seen.has(a.lead_id)) {
+      seen.add(a.lead_id);
+      removed.push({ lead_id: a.lead_id, name: a.name || a.lead_id, reason: a.reason || 'Duplicate record', primary_id: a.primary_id || '', status: 'Duplicate' });
+    }
+  });
+  STATE.primaries.forEach(p => {
+    const cls = STATE.classifications[p.lead_id] || {};
+    const audit = auditRecord(p.lead_id);
+    if (cls.relevant === false && !(audit && audit.requires_human_review) && !seen.has(p.lead_id)) {
+      seen.add(p.lead_id);
+      removed.push({ lead_id: p.lead_id, name: p.name || p.lead_id, reason: cls.reason || 'Not relevant', primary_id: '', status: 'Not Relevant' });
+    }
+  });
+  return removed;
+}
+
+function matchesSearch(p) {
+  if (!searchTerm) return true;
+  const term = searchTerm.toLowerCase();
+  return (
+    String(p.lead_id || '').toLowerCase().includes(term) ||
+    String(p.name || '').toLowerCase().includes(term) ||
+    String(p.city || '').toLowerCase().includes(term)
+  );
+}
+function sortLeads(rows) {
+  return [...rows].sort((a, b) => {
+    const av = priorityValue((a.priority || {}).band);
+    const bv = priorityValue((b.priority || {}).band);
+    if (av !== bv) return sortOrder === 'desc' ? bv - av : av - bv;
+    const as = Number((a.priority || {}).score) || 0;
+    const bs = Number((b.priority || {}).score) || 0;
+    return sortOrder === 'desc' ? bs - as : as - bs;
+  });
+}
+function notStated(value) {
+  const v = String(value ?? '').trim();
+  if (!v || /^(not stated|none|n\/a|na)$/i.test(v)) return `<span class="not-stated">Not stated</span>`;
+  return escapeHTML(v);
+}
+function bandClass(band) { return String(band || 'na').toLowerCase(); }
+
+// --- Toasts ----------------------------------------------------------------------
+let toastTimer = null;
+function showToast(message) {
+  const toast = document.getElementById('skillcaseToast');
+  toast.textContent = message;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 1900);
+}
+
+// --- Tabs ---------------------------------------------------------------------------
+function updateCounts() {
+  document.getElementById('countAll').textContent = getActiveLeads().length;
+  document.getElementById('countReview').textContent =
+    getReviewLeads().length + getFlaggedDuplicates().length;
+  document.getElementById('countContacted').textContent = getContactedLeads().length;
+  document.getElementById('countRemoved').textContent = getRemovedLeads().length;
+}
+
+function positionTabTick(animate = true) {
+  const tick = document.getElementById('tabTick');
+  const active = document.querySelector(`#workspaceTabs .tab[data-filter="${currentTab}"]`);
+  if (!tick || !active) return;
+  const label = active.querySelector('.t-label');
+  if (!animate || REDUCED_MOTION) tick.style.transition = 'none';
+  tick.style.width = `${label.offsetWidth}px`;
+  tick.style.transform = `translateX(${active.offsetLeft + label.offsetLeft}px)`;
+  if (!animate || REDUCED_MOTION) requestAnimationFrame(() => { tick.style.transition = ''; });
+}
+
+document.getElementById('workspaceTabs').addEventListener('click', (e) => {
+  const button = e.target.closest('.tab');
+  if (!button || button.dataset.filter === currentTab) return;
+  document.querySelectorAll('#workspaceTabs .tab').forEach(b =>
+    b.setAttribute('aria-selected', b === button ? 'true' : 'false'));
+  currentTab = button.dataset.filter;
+  positionTabTick(true);
+  renderWorkspace();
+});
+window.addEventListener('resize', () => positionTabTick(false));
+
+// --- FLIP list transitions -------------------------------------------------------------
+function withFlip(renderFn) {
+  const ledger = document.getElementById('ledger');
+  const rows = [...ledger.querySelectorAll('[data-lead-id]')];
+  const first = new Map();
+  rows.forEach(r => first.set(r.dataset.leadId, r.getBoundingClientRect().top));
+  renderFn();
+  if (REDUCED_MOTION) return;
+  [...ledger.querySelectorAll('[data-lead-id]')].forEach(r => {
+    const prev = first.get(r.dataset.leadId);
+    if (prev === undefined) { r.classList.add('row-in'); return; }
+    const delta = prev - r.getBoundingClientRect().top;
+    if (Math.abs(delta) > 2) {
+      r.style.transition = 'none';
+      r.style.transform = `translateY(${delta}px)`;
+      requestAnimationFrame(() => {
+        r.style.transition = `transform 300ms var(--ease-out)`;
+        r.style.transform = '';
+      });
+    }
+  });
+}
+
+// --- Row menu (kebab) --------------------------------------------------------------------
+function closeRowMenu() {
+  if (openMenuRow) {
+    const menu = openMenuRow.querySelector('.row-menu');
+    if (menu) menu.remove();
+    openMenuRow = null;
+  }
+}
+document.addEventListener('click', (e) => {
+  if (openMenuRow && !e.target.closest('.row-menu') && !e.target.closest('.kebab-btn')) {
+    closeRowMenu();
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeRowMenu();
+});
+
+// --- Rendering -------------------------------------------------------------------------------
+const CHEV_SVG = '<svg class="icon" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg>';
+const KEBAB_SVG = '<span class="kebab-dots" aria-hidden="true"><i></i><i></i><i></i></span>';
+const REGEN_SVG = '<svg class="icon" viewBox="0 0 16 16"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 1.5v3h-3"/></svg>';
+const COPY_SVG = '<svg class="icon" viewBox="0 0 16 16"><rect x="5.5" y="5.5" width="8" height="8" rx="1"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>';
+
+function leadRowHTML(p, contacted) {
+  const pr = p.priority || { band: 'N/A' };
+  const band = bandClass(pr.band);
+  const scoreHtml = pr.score != null ? ` · <span class="score">${escapeHTML(pr.score)}</span>` : '';
+  return `
+    <span class="signal-tick ${band}" aria-hidden="true"></span>
+    <span class="lead-id">${escapeHTML(p.lead_id)}</span>
+    <span class="lead-name">
+      <span class="n">${escapeHTML(p.name || 'Unnamed lead')}</span>
+      <span class="city">${escapeHTML(p.city || '')}</span>
+    </span>
+    <span class="lead-priority ${band}">
+      <span class="dot" aria-hidden="true"></span>
+      <span>${escapeHTML(pr.band || 'N/A')}${scoreHtml}</span>
+    </span>
+
+    <label class="lead-status ${contacted ? 'on' : ''}" data-stop>
+      <input
+        type="checkbox"
+        ${contacted ? 'checked' : ''}
+        aria-label="${contacted ? 'Remove from Contacted' : 'Mark as Contacted'}"
+      >
+      <span class="status-label">${contacted ? 'Contacted' : 'Mark as Contacted'}</span>
+    </label>
+
+    <span class="row-actions" data-stop>
+      <button class="ghost-btn kebab-btn" type="button" aria-label="More actions" aria-haspopup="menu">${KEBAB_SVG}</button>
+      <button class="ghost-btn chev-btn" type="button" aria-label="Expand lead">${CHEV_SVG}</button>
+    </span>
+  `;
+}
+
+function detailHTML(p) {
+  const enr = STATE.enrichments[p.lead_id] || {};
+  const pr = p.priority || { band: 'N/A' };
+  const band = bandClass(pr.band);
+  const outreach = STATE.outreach[p.lead_id] || '';
+  const qcFlags = STATE.qc[p.lead_id] || [];
+  const comp = (pr.components || {});
+  const hasComp = comp.intent != null;
+
+  // Display-only weighted conversion of the existing 0–100 component scores
+  // (intent x0.40 + urgency x0.25 + fit x0.20 + engagement x0.15). The
+  // scoring logic itself is untouched — this mirrors compute_priority exactly.
+  const w = hasComp ? [
+    ['Intent match', Math.round(comp.intent * 0.40), 40],
+    ['Need urgency', Math.round(comp.urgency * 0.25), 25],
+    ['Profile fit', Math.round(comp.fit * 0.20), 20],
+    ['Engagement signals', Math.round(comp.engagement * 0.15), 15],
+  ] : null;
+
+  const breakdown = w
+    ? w.map(([label, val, max]) =>
+        `<div class="b-row"><span>${label}</span><span class="b-val">${val}/${max}</span></div>`).join('')
+    : `<div class="b-row"><span class="not-stated">Not scored — lead not relevant to Skillcase's healthcare program.</span></div>`;
+
+  const total = pr.score == null
+    ? `<div class="ts-label">Total Score</div><div class="ts-num">—</div><div class="ts-na">Not scored</div>`
+    : `<div class="ts-label">Total Score</div><div class="ts-num">${escapeHTML(pr.score)}</div><div class="ts-band">${escapeHTML(pr.band)} Priority</div>`;
+
+  const facts = [];
+  if (p.education) facts.push(['Qualification', p.education]);
+  if (p.experience_years != null && p.experience_years !== '') facts.push(['Experience', p.experience_years + (Number(p.experience_years) === 1 ? ' year' : ' years')]);
+  if (p.german_level) facts.push(['German level', p.german_level]);
+  if (p.goal) facts.push(['Stated goal', p.goal]);
+
+  return `
+    <div class="detail-inner">
+      <div class="detail-grid3">
+        <div class="dcol">
+          <div class="dsec">
+            <h4>Profile</h4>
+            <p class="p-name">${escapeHTML(p.name || 'Unnamed lead')}</p>
+            <p class="p-line">${escapeHTML(p.city || '')}</p>
+            ${facts.length ? `<div class="p-facts">${facts.map(([k, v]) => `<div class="p-fact"><b>${escapeHTML(k)}</b>${escapeHTML(v)}</div>`).join('')}</div>` : ''}
+          </div>
+        </div>
+
+        <div class="dcol">
+          <div class="dsec"><h4>Career Goal</h4><p class="goal-serif">${notStated(enr.intent)}</p></div>
+          <div class="dsec"><h4>Current Need</h4><p>${notStated(enr.need)}</p></div>
+          <div class="dsec"><h4>Objection / Concern</h4><p>${notStated(enr.objection)}</p></div>
+          <div class="dsec"><h4>Missing Information</h4><p>${notStated(enr.missing_info)}</p></div>
+        </div>
+
+        <div class="dcol">
+          <div class="dsec"><h4>Opportunity</h4><p>${notStated(enr.opportunity)}</p></div>
+          <div class="dsec"><h4>Recommended Next Step</h4><p>${notStated(enr.next_action)}</p></div>
+          <div class="dsec">
+            <h4>Priority Breakdown</h4>
+            <div class="breakdown-wrap">
+              <div class="breakdown">${breakdown}</div>
+              <div class="total-score ${band}">${total}</div>
+            </div>
+            <p class="priority-note">A sales follow-up heuristic, not a conversion prediction. Objections shape the follow-up approach and never reduce the score.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="outreach-sec">
+        <div class="outreach-box">
+          <div class="outreach-head">
+            <h4>Personalized Outreach</h4>
+            <div class="outreach-actions">
+              <button class="btn-small secondary regenerate-outreach" type="button">${REGEN_SVG}Regenerate</button>
+              <button class="btn-small primary copy-outreach" type="button">${COPY_SVG}Copy</button>
+            </div>
+          </div>
+          <textarea class="outreach-text" id="outreach-${escapeHTML(p.lead_id)}" placeholder="No outreach draft available.">${escapeHTML(outreach)}</textarea>
+          <div class="regen-error" role="alert">Regeneration failed — your existing draft is untouched. Check the server logs or try again.</div>
+        </div>
+      </div>
+
+      ${qcFlags.length ? `
+        <div class="review-note">
+          <strong>Human review note</strong>
+          ${escapeHTML(qcFlags.join(' · '))}
+        </div>` : ''}
+    </div>
+  `;
+}
+
+function makeLeadRow(p, contacted = false) {
+  const row = document.createElement('div');
+  row.className = 'lead-row';
+  row.dataset.leadId = p.lead_id;
+  row.setAttribute('role', 'button');
+  row.setAttribute('tabindex', '0');
+  row.innerHTML = leadRowHTML(p, contacted);
+
+  const detail = document.createElement('div');
+  detail.className = 'lead-detail';
+  detail.dataset.leadId = p.lead_id;
+  detail.innerHTML = detailHTML(p);
+
+  const toggleExpand = () => {
+    closeRowMenu();
+    const isOpen = row.classList.contains('open');
+    if (isOpen) {
+      row.classList.remove('open');
+      detail.classList.remove('open');
+      return;
+    }
+    row.classList.add('open');
+    detail.classList.add('open');
+    wireDetail(detail, p);
+  };
+
+  row.addEventListener('click', (e) => {
+    if (e.target.closest('[data-stop]') || e.target.closest('button') || e.target.closest('textarea')) return;
+    toggleExpand();
+  });
+  row.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('[data-stop]')) {
+      e.preventDefault();
+      toggleExpand();
+    }
+  });
+
+  // Contact status toggle: pure frontend state — no AI reprocessing.
+  const statusBtn = row.querySelector('.lead-status');
+  statusBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeRowMenu();
+    if (contacted) {
+      unmarkContacted(p);
+    } else {
+      markContacted(p, row);
+    }
+  });
+
+  const chevBtn = row.querySelector('.chev-btn');
+  chevBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleExpand();
+  });
+
+  const kebabBtn = row.querySelector('.kebab-btn');
+  kebabBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (openMenuRow === row) { closeRowMenu(); return; }
+    closeRowMenu();
+    const menu = document.createElement('div');
+    menu.className = 'row-menu';
+    menu.setAttribute('role', 'menu');
+    menu.innerHTML = `
+      <button type="button" data-act="regen" role="menuitem">Regenerate outreach</button>
+      <button type="button" data-act="copy" role="menuitem">Copy outreach</button>
+      <hr>
+      <button type="button" data-act="contact" role="menuitem">${contacted ? 'Remove from Contacted' : 'Mark as contacted'}</button>
+    `;
+    menu.addEventListener('click', (ev) => {
+      const act = ev.target.closest('button')?.dataset.act;
+      if (!act) return;
+      closeRowMenu();
+      if (act === 'copy') {
+        navigator.clipboard.writeText(STATE.outreach[p.lead_id] || '')
+          .then(() => showToast('Outreach copied.'))
+          .catch(() => showToast('Copy failed — expand the lead to copy manually.'));
+      } else if (act === 'regen') {
+        if (!row.classList.contains('open')) toggleExpand();
+        const d = document.querySelector(`.lead-detail[data-lead-id="${p.lead_id}"]`);
+        if (d) regenerateOutreach(p, d, d.querySelector('.regenerate-outreach'));
+      } else if (act === 'contact') {
+        statusBtn.click();
       }
     });
+    row.appendChild(menu);
+    openMenuRow = row;
+  });
 
-    showPipelineError(err && err.message ? err.message : String(err));
+  return { row, detail };
+}
 
+function wireDetail(detail, p) {
+  if (detail.dataset.wired) return;
+  detail.dataset.wired = '1';
+
+  const textarea = detail.querySelector('.outreach-text');
+  function autoSize() {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.max(96, textarea.scrollHeight) + 'px';
+  }
+  autoSize();
+  textarea.addEventListener('input', () => {
+    STATE.outreach[p.lead_id] = textarea.value;
+    autoSize();
+  });
+
+  detail.querySelector('.copy-outreach').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+      const original = btn.innerHTML;
+      btn.innerHTML = 'Copied';
+      setTimeout(() => { btn.innerHTML = original; }, 1200);
+    } catch {
+      showToast('Copy failed — select the text manually.');
+    }
+  });
+
+  detail.querySelector('.regenerate-outreach').addEventListener('click', (e) => {
+    regenerateOutreach(p, detail, e.currentTarget);
+  });
+}
+
+// --- Regenerate outreach (UI states only; generation workflow unchanged) --------
+async function regenerateOutreach(p, detail, btn) {
+  if (regenerating[p.lead_id]) return;
+  regenerating[p.lead_id] = true;
+
+  const box = detail.querySelector('.outreach-box');
+  const textarea = detail.querySelector('.outreach-text');
+  const errorEl = detail.querySelector('.regen-error');
+  const oldText = textarea.value;
+  const oldHTML = btn.innerHTML;
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin-arc"></span>Regenerating';
+  box.classList.add('regenerating');
+  box.classList.remove('regenerate-error');
+  errorEl.classList.remove('show');
+  textarea.classList.add('regenerating');
+
+  try {
+    const data = await postJSON('/api/outreach/regenerate', { lead_id: p.lead_id });
+    const newMessage = (data && data.outreach) || '';
+    if (!newMessage) throw new Error('Empty response from the model.');
+
+    await animateTextSwap(textarea, newMessage);
+    STATE.outreach[p.lead_id] = newMessage;
+
+    // Keep the server's current state in sync (the regenerated draft only
+    // lives in the UI otherwise, and lead_id lookups would use the stale one).
+    postJSON('/api/workspace/result', { result: {
+      primaries: STATE.primaries,
+      duplicate_groups: STATE.duplicateGroups,
+      lead_audit: STATE.leadAudit,
+      classifications: STATE.classifications,
+      enrichments: STATE.enrichments,
+      outreach: STATE.outreach,
+      qc: STATE.qc,
+    } }).catch(() => {});
+
+    // Re-run existing QC on the new draft so flags stay honest.
+    try {
+      const qc = await postJSON('/api/pipeline/qc', {
+        leads: STATE.primaries,
+        classifications: STATE.classifications,
+        enrichments: STATE.enrichments,
+        outreach: STATE.outreach,
+      });
+      STATE.qc = qc;
+      const note = detail.querySelector('.review-note');
+      const flags = qc[p.lead_id] || [];
+      if (flags.length) {
+        if (note) {
+          note.innerHTML = `<strong>Human review note</strong>${escapeHTML(flags.join(' · '))}`;
+        } else {
+          const div = document.createElement('div');
+          div.className = 'review-note';
+          div.innerHTML = `<strong>Human review note</strong>${escapeHTML(flags.join(' · '))}`;
+          detail.querySelector('.detail-inner').appendChild(div);
+        }
+      } else if (note) {
+        note.remove();
+      }
+      updateQcFold();
+      updateCounts();
+    } catch { /* QC refresh is best-effort */ }
+
+    showToast('New draft ready.');
+  } catch (err) {
+    console.error('Regenerate failed:', err);
+    textarea.value = oldText;                 // old message preserved on failure
+    box.classList.add('regenerate-error');
+    errorEl.classList.add('show');
+    showToast('Regeneration failed — original draft kept.');
   } finally {
-
-    runBtn.disabled = false;
-
+    btn.disabled = false;
+    btn.innerHTML = oldHTML;
+    box.classList.remove('regenerating');
+    textarea.classList.remove('regenerating');
+    delete regenerating[p.lead_id];
   }
 }
 
-function renderProblems() {
+function animateTextSwap(textarea, newText) {
+  return new Promise((resolve) => {
+    if (REDUCED_MOTION) { textarea.value = newText; autoSizeTextarea(textarea); resolve(); return; }
+    textarea.style.opacity = '0';
+    textarea.style.filter = 'blur(2px)';
+    setTimeout(() => {
+      textarea.value = newText;
+      autoSizeTextarea(textarea);
+      textarea.style.transition = 'opacity 240ms var(--ease-out), filter 240ms var(--ease-out)';
+      textarea.style.opacity = '1';
+      textarea.style.filter = 'blur(0)';
+      setTimeout(() => { textarea.style.transition = ''; resolve(); }, 260);
+    }, 200);
+  });
+}
+function autoSizeTextarea(textarea) {
+  textarea.style.height = 'auto';
+  textarea.style.height = Math.max(96, textarea.scrollHeight) + 'px';
+}
+
+// --- Contacted flow ------------------------------------------------------------------
+function markContacted(p, row) {
+  showToast(`${p.name || p.lead_id} moved to Contacted`);
+  completingLeads[p.lead_id] = true;
+
+  setTimeout(() => {
+    contactedLeads[p.lead_id] = { timestamp: new Date().toISOString() };
+    saveContacted();
+    delete completingLeads[p.lead_id];
+
+    updateCounts();
+    if (currentTab === 'contacted') { renderWorkspace(); return; }
+
+    const detail = document.querySelector(`.lead-detail[data-lead-id="${p.lead_id}"]`);
+    const finish = () => renderWorkspace();
+
+    if (REDUCED_MOTION || !row.isConnected) { finish(); return; }
+    row.classList.add('leaving');
+    if (detail) { detail.classList.add('leaving'); detail.style.display = 'block'; }
+    setTimeout(finish, 240);
+  }, REDUCED_MOTION ? 0 : 500);
+}
+
+function unmarkContacted(p) {
+  // Pure state change: classification, enrichment, priority, QC flags and
+  // outreach all live in STATE and are untouched here. No AI reprocessing.
+  delete contactedLeads[p.lead_id];
+  saveContacted();
+  showToast(`${p.name || p.lead_id} returned to All Leads`);
+  updateCounts();
+  renderWorkspace();
+}
+
+function saveContacted() {
+  localStorage.setItem('skillcase_contacted_leads', JSON.stringify(contactedLeads));
+}
+
+// --- List rendering ---------------------------------------------------------------------
+function renderWorkspace() {
+  const ledger = document.getElementById('ledger');
+  ledger.innerHTML = '';
+  document.getElementById('colHead').style.display = currentTab === 'removed' ? 'none' : '';
+
+  if (currentTab === 'removed') { renderRemovedRows(ledger); }
+  else if (currentTab === 'contacted') {
+    let rows = getContactedLeads().filter(matchesSearch);
+    rows = sortLeads(rows);
+    if (!rows.length) {
+      ledger.innerHTML = emptyState('No contacted leads yet.', 'Mark a lead as contacted and it will appear here.');
+      return;
+    }
+    rows.forEach(p => {
+      const { row, detail } = makeLeadRow(p, true);
+      const removeWrap = document.createElement('div');
+      removeWrap.className = 'contacted-actions';
+      removeWrap.innerHTML = `<button class="btn-small secondary remove-contacted" type="button">Remove from Contacted</button>`;
+      detail.querySelector('.detail-inner').appendChild(removeWrap);
+      removeWrap.querySelector('.remove-contacted').addEventListener('click', () => unmarkContacted(p));
+      ledger.appendChild(row);
+      ledger.appendChild(detail);
+    });
+  } else {
+    let rows = currentTab === 'review' ? getReviewLeads() : getActiveLeads();
+    rows = rows.filter(matchesSearch);
+    if (currentTab === 'all' && priorityFilter !== 'all') {
+      rows = rows.filter(p => bandClass((p.priority || {}).band) === priorityFilter);
+    }
+    rows = sortLeads(rows);
+    // Review tab additionally shows flagged conflicting duplicates. They are
+    // not primaries (never classified/enriched/scored) but must be reachable.
+    const flagged = currentTab === 'review'
+      ? getFlaggedDuplicates().filter(a =>
+          !searchTerm ||
+          String(a.lead_id).toLowerCase().includes(searchTerm) ||
+          String(a.reason || '').toLowerCase().includes(searchTerm))
+      : [];
+    if (!rows.length && !flagged.length) {
+      const msg = currentTab === 'review'
+        ? emptyState('Nothing needs review.', 'Every lead has passed the automated quality checks.')
+        : emptyState('No active leads match these filters.', 'Try clearing the search or priority filter.');
+      ledger.innerHTML = msg;
+      return;
+    }
+    rows.forEach(p => {
+      const { row, detail } = makeLeadRow(p, false);
+      ledger.appendChild(row);
+      ledger.appendChild(detail);
+    });
+    flagged.forEach(a => {
+      const { row, detail } = makeFlaggedRow(a);
+      ledger.appendChild(row);
+      ledger.appendChild(detail);
+    });
+  }
+}
+
+function emptyState(title, sub) {
+  return `<div class="empty-state"><span class="serif">${title}</span>${escapeHTML(sub)}</div>`;
+}
+
+// Flagged conflicting duplicate (e.g. L028 -> L001): rendered from its audit
+// record only. No classification, enrichment, priority or outreach exists for
+// it by design, so the row shows the flag status and the association.
+function makeFlaggedRow(a) {
+  const row = document.createElement('div');
+  row.className = 'lead-row';
+  row.dataset.leadId = a.lead_id;
+  row.setAttribute('role', 'button');
+  row.setAttribute('tabindex', '0');
+  row.innerHTML = `
+    <span class="signal-tick" aria-hidden="true"></span>
+    <span class="lead-id">${escapeHTML(a.lead_id)}</span>
+    <span class="lead-name">
+      <span class="n">Conflicting duplicate record</span>
+      <span class="city">Shares contact details with ${escapeHTML(a.primary_id)}</span>
+    </span>
+    <span class="lead-priority na"><span class="dot" aria-hidden="true"></span><span>—</span></span>
+    <span class="removed-status">Flagged duplicate · pending reconciliation</span>
+    <span class="row-actions" data-stop>
+      <button class="ghost-btn chev-btn" type="button" aria-label="Expand">${CHEV_SVG}</button>
+    </span>
+  `;
+  const detail = document.createElement('div');
+  detail.className = 'lead-detail';
+  detail.dataset.leadId = a.lead_id;
+  detail.innerHTML = `
+    <div class="detail-inner">
+      <div class="detail-grid3" style="grid-template-columns:1fr;">
+        <div class="dcol">
+          <div class="dsec"><h4>Status</h4><p>Flagged duplicate · pending reconciliation</p></div>
+          <div class="dsec"><h4>Conflicts with / associated with</h4><p class="mono">${escapeHTML(a.primary_id)}</p></div>
+          <div class="dsec"><h4>Reason</h4><p>${escapeHTML(a.reason)}</p></div>
+          <div class="dsec"><h4>Processing</h4><p class="not-stated">Excluded from the active batch — not classified, enriched, scored or drafted until a human reconciles it.</p></div>
+        </div>
+      </div>
+    </div>`;
+  const toggle = () => {
+    row.classList.toggle('open');
+    detail.classList.toggle('open');
+  };
+  row.addEventListener('click', (e) => {
+    if (e.target.closest('[data-stop]') || e.target.closest('button')) return;
+    toggle();
+  });
+  row.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('[data-stop]')) {
+      e.preventDefault();
+      toggle();
+    }
+  });
+  row.querySelector('.chev-btn').addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
+  return { row, detail };
+}
+
+function renderRemovedRows(ledger) {
+  let removed = getRemovedLeads().filter(r => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return String(r.lead_id).toLowerCase().includes(term) || String(r.name || '').toLowerCase().includes(term);
+  });
+  if (!removed.length) {
+    ledger.innerHTML = emptyState('No removed leads.', 'Duplicates and not-relevant leads will be listed here.');
+    return;
+  }
+  removed.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'lead-row';
+    row.dataset.leadId = r.lead_id;
+    row.innerHTML = `
+      <span class="signal-tick" aria-hidden="true"></span>
+      <span class="lead-id">${escapeHTML(r.lead_id)}</span>
+      <span class="lead-name">
+        <span class="n">${escapeHTML(r.name || 'Unnamed lead')}</span>
+        <span class="city">${escapeHTML(r.reason)}</span>
+      </span>
+      <span class="lead-priority na"><span class="dot"></span><span>—</span></span>
+      <span class="removed-status">${escapeHTML(r.status)}${r.primary_id ? ` · → ${escapeHTML(r.primary_id)}` : ''}</span>
+      <span class="row-actions" data-stop>
+        <button class="ghost-btn chev-btn" type="button" aria-label="Expand">${CHEV_SVG}</button>
+      </span>
+    `;
+    const detail = document.createElement('div');
+    detail.className = 'lead-detail';
+    detail.dataset.leadId = r.lead_id;
+    detail.innerHTML = `
+      <div class="detail-inner">
+        <div class="detail-grid3" style="grid-template-columns:1fr;">
+          <div class="dcol">
+            <div class="dsec"><h4>Reason for removal</h4><p>${escapeHTML(r.reason)}</p></div>
+            ${r.primary_id ? `<div class="dsec"><h4>Retained primary</h4><p class="mono">${escapeHTML(r.primary_id)}</p></div>` : ''}
+          </div>
+        </div>
+      </div>`;
+    const chev = row.querySelector('.chev-btn');
+    const toggle = () => {
+      row.classList.toggle('open');
+      detail.classList.toggle('open');
+    };
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('[data-stop]') || e.target.closest('button')) return;
+      toggle();
+    });
+    chev.addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
+    ledger.appendChild(row);
+    ledger.appendChild(detail);
+  });
+}
+
+const originalRender = renderWorkspace;
+renderWorkspace = function() { withFlip(originalRender); };
+
+// --- QC fold (below the list, collapsed) ------------------------------------------------
+function updateQcFold() {
+  const count = Object.values(STATE.qc).filter(f => Array.isArray(f) && f.length).length;
+  document.getElementById('qcFoldCount').textContent = count ? `${count} item${count === 1 ? '' : 's'}` : '0 items — all clear';
   const list = document.getElementById('problemsList');
   list.innerHTML = '';
   const problems = [];
@@ -1080,737 +1819,56 @@ function renderProblems() {
   if (bigDup) {
     problems.push({
       title: `Duplicate cluster: ${bigDup.all.join(', ')}`,
-      body: `Same phone number across ${bigDup.all.length} records. ${bigDup.exact.length ? bigDup.exact.join(', ') + ' matched exactly and were auto-merged into ' + bigDup.primary + '.' : ''} ${bigDup.fuzzy.length ? bigDup.fuzzy.join(', ') + ' shared the phone/email but had conflicting details — kept out of auto-merge and flagged for a human to reconcile rather than guessed.' : ''}`
+      body: `Same phone number across ${bigDup.all.length} records. ` +
+        (bigDup.exact.length ? `${bigDup.exact.join(', ')} matched exactly and were auto-merged into ${bigDup.primary}. ` : '') +
+        (bigDup.fuzzy.length ? `${bigDup.fuzzy.join(', ')} shared the phone but had conflicting details — kept out of auto-merge and flagged for a human to reconcile rather than guessed.` : ''),
     });
   }
   const missingLead = STATE.primaries.find(p => p.missing_fields && p.missing_fields.length > 0);
   if (missingLead) {
     problems.push({
       title: `Missing field before contact: ${missingLead.lead_id}`,
-      body: `${missingLead.name} is missing ${missingLead.missing_fields.join(', ')}. The classifier still returned a judgment, but confidence and the "missing info" field reflect the gap rather than pretending it isn't there.`
+      body: `${missingLead.name || missingLead.lead_id} is missing ${missingLead.missing_fields.join(', ')}. The classifier still returned a judgment, but the record is flagged rather than pretending it's complete.`,
     });
   }
-  const ambiguous = Object.values(STATE.classifications).sort((a,b) => (a.confidence??1) - (b.confidence??1))[0];
-  if (ambiguous) {
+  const ambiguous = Object.values(STATE.classifications).sort((a, b) => (a.confidence ?? 1) - (b.confidence ?? 1))[0];
+  if (ambiguous && ambiguous.confidence != null) {
     const lead = STATE.primaries.find(p => p.lead_id === ambiguous.lead_id);
     problems.push({
       title: `Lowest-confidence call: ${ambiguous.lead_id} (${ambiguous.confidence})`,
-      body: `${lead ? lead.name : ambiguous.lead_id} — "${ambiguous.reason}". Routed into the "Needs review" filter below so a person makes the final call on genuinely borderline leads.`
+      body: `${lead ? lead.name : ambiguous.lead_id} — "${ambiguous.reason}". Routed into "Needs Human Review" so a person makes the final call on borderline leads.`,
     });
   }
-  const overpromiseId = Object.keys(STATE.qc).find(id => (STATE.qc[id]||[]).some(f => f.includes('guarantee')));
+  const overpromiseId = Object.keys(STATE.qc).find(id => (STATE.qc[id] || []).some(f => f.includes('guarantee')));
   if (overpromiseId) {
     problems.push({
       title: `Outreach self-correction caught: ${overpromiseId}`,
-      body: `The drafted outreach message used the word "guarantee" for a lead explicitly worried about unrealistic promises. The QC pass flagged it for a rewrite before it could go out.`
+      body: 'The drafted outreach used promise-style language. The QC pass flagged it for a rewrite before it could go out.',
     });
   }
   problems.slice(0, 4).forEach(p => {
     const div = document.createElement('div');
     div.className = 'problem';
-    div.innerHTML = `<h3>${p.title}</h3><p>${p.body}</p>`;
+    div.innerHTML = `<h3>${escapeHTML(p.title)}</h3><p>${escapeHTML(p.body)}</p>`;
     list.appendChild(div);
   });
 }
 
-function saveContacted() {
-  localStorage.setItem(
-    'skillcase_contacted_leads',
-    JSON.stringify(contactedLeads)
-  );
-}
-
-function showToast(message) {
-  let toast = document.getElementById('skillcaseToast');
-
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'skillcaseToast';
-    toast.className = 'skillcase-toast';
-    document.body.appendChild(toast);
-  }
-
-  toast.textContent = message;
-  toast.classList.add('show');
-
-  clearTimeout(toast._timer);
-
-  toast._timer = setTimeout(() => {
-    toast.classList.remove('show');
-  }, 1600);
-}
-
-function auditRecord(id) {
-  return (STATE.leadAudit || []).find(
-    a => a.lead_id === id
-  );
-}
-
-function isRemovedLead(p) {
-  const cls = STATE.classifications[p.lead_id] || {};
-  const audit = auditRecord(p.lead_id);
-
-  if (audit && audit.status === 'merged') {
-    return true;
-  }
-
-  if (
-    cls.relevant === false &&
-    !(audit && audit.requires_human_review)
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-function needsHumanReview(p) {
-  if (isRemovedLead(p)) {
-    return false;
-  }
-
-  const audit = auditRecord(p.lead_id);
-  const qcFlags = STATE.qc[p.lead_id] || [];
-
-  return Boolean(
-    (audit && audit.requires_human_review) ||
-    qcFlags.length > 0
-  );
-}
-
-function priorityValue(band) {
-  return {
-    High: 3,
-    Medium: 2,
-    Low: 1
-  }[band] || 0;
-}
-
-function getActiveLeads() {
-  return STATE.primaries.filter(p => {
-    const cls = STATE.classifications[p.lead_id] || {};
-
-    return (
-      cls.relevant === true &&
-      !isRemovedLead(p) &&
-      !needsHumanReview(p) &&
-      !contactedLeads[p.lead_id]
-    );
-  });
-}
-
-function getCompletedLeads() {
-  return STATE.primaries.filter(
-    p => Boolean(contactedLeads[p.lead_id])
-  );
-}
-
-function getReviewLeads() {
-  return STATE.primaries.filter(
-    p => needsHumanReview(p)
-  );
-}
-
-function getRemovedLeads() {
-  const removed = [];
-  const seen = new Set();
-
-  // Duplicate records removed during cleaning
-  (STATE.leadAudit || []).forEach(a => {
-    if (
-      a.status === 'merged' &&
-      !seen.has(a.lead_id)
-    ) {
-      seen.add(a.lead_id);
-
-      removed.push({
-        lead_id: a.lead_id,
-        name: a.name || a.lead_id,
-        reason: a.reason || 'Duplicate record',
-        primary_id: a.primary_id || '',
-        status: 'Duplicate'
-      });
-    }
-  });
-
-  // Leads classified as not relevant
-  STATE.primaries.forEach(p => {
-    const cls = STATE.classifications[p.lead_id] || {};
-    const audit = auditRecord(p.lead_id);
-
-    if (
-      cls.relevant === false &&
-      !(audit && audit.requires_human_review) &&
-      !seen.has(p.lead_id)
-    ) {
-      seen.add(p.lead_id);
-
-      removed.push({
-        lead_id: p.lead_id,
-        name: p.name || p.lead_id,
-        reason: cls.reason || 'Not relevant',
-        primary_id: '',
-        status: 'Not Relevant'
-      });
-    }
-  });
-
-  return removed;
-}
-
-function matchesSearch(p) {
-  if (!searchTerm) {
-    return true;
-  }
-
-  const term = searchTerm.toLowerCase();
-
-  return (
-    String(p.lead_id || '')
-      .toLowerCase()
-      .includes(term) ||
-    String(p.name || '')
-      .toLowerCase()
-      .includes(term) ||
-    String(p.city || '')
-      .toLowerCase()
-      .includes(term)
-  );
-}
-
-function sortLeads(rows) {
-  return [...rows].sort((a, b) => {
-    const av = priorityValue(
-      (a.priority || {}).band
-    );
-
-    const bv = priorityValue(
-      (b.priority || {}).band
-    );
-
-    if (av !== bv) {
-      return sortOrder === 'desc'
-        ? bv - av
-        : av - bv;
-    }
-
-    const as =
-      Number((a.priority || {}).score) || 0;
-
-    const bs =
-      Number((b.priority || {}).score) || 0;
-
-    return sortOrder === 'desc'
-      ? bs - as
-      : as - bs;
-  });
-}
-
-function escapeHTML(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-function renderLeadRow(p, completed = false) {
-  const enr =
-    STATE.enrichments[p.lead_id] || {};
-
-  const pr =
-    p.priority || { band: 'N/A' };
-
-  const outreach =
-    STATE.outreach[p.lead_id] || '';
-
-  const qcFlags =
-    STATE.qc[p.lead_id] || [];
-
-  const completing = Boolean(completingLeads[p.lead_id]);
-  
-  const row =
-    document.createElement('div');
-
-  row.className = `row${completing ? ' completing' : ''}`;
-
-  const checked = completed || completing
-  ? 'checked disabled'
-  : '';
-
-  row.innerHTML = `
-    <span class="id">
-      ${escapeHTML(p.lead_id)}
-    </span>
-
-    <span class="name">
-      ${escapeHTML(p.name || 'Unnamed lead')}
-    </span>
-
-    <span class="priority-col">
-      <span class="badge ${(pr.band || 'na').toLowerCase()}">
-        ${escapeHTML(pr.band || 'N/A')}
-      </span>
-    </span>
-
-    <label class="contact-checkbox">
-      <input
-        type="checkbox"
-        ${checked}
-        aria-label="Mark ${escapeHTML(p.name || 'lead')} as contacted"
-      >
-      <span>
-        ${completed ? 'Contacted' : 'Mark as contacted'}
-      </span>
-    </label>
-
-    <span class="chev">›</span>
-  `;
-
-  const detail =
-    document.createElement('div');
-
-  detail.className = 'detail';
-
-  const objection =
-    enr.objection || 'None stated';
-
-  const urgency =
-    enr.urgency
-      ? String(enr.urgency)
-          .charAt(0)
-          .toUpperCase() +
-        String(enr.urgency).slice(1)
-      : '—';
-
-  detail.innerHTML = `
-    <div class="detail-grid">
-
-      <div class="detail-item">
-        <h4>Profile</h4>
-        <p>${escapeHTML(enr.profile || '—')}</p>
-      </div>
-
-      <div class="detail-item">
-        <h4>Career goal / intent</h4>
-        <p>${escapeHTML(enr.intent || '—')}</p>
-      </div>
-
-      <div class="detail-item">
-        <h4>Needs</h4>
-        <p>${escapeHTML(enr.need || '—')}</p>
-      </div>
-
-      <div class="detail-item">
-        <h4>Objection / concern</h4>
-        <p>${escapeHTML(objection)}</p>
-      </div>
-
-      <div class="detail-item">
-        <h4>Missing information</h4>
-        <p>${escapeHTML(enr.missing_info || '—')}</p>
-      </div>
-
-      <div class="detail-item">
-        <h4>Opportunity</h4>
-        <p>${escapeHTML(enr.opportunity || '—')}</p>
-      </div>
-
-      <div class="detail-item">
-        <h4>Recommended next step</h4>
-        <p>${escapeHTML(enr.next_action || '—')}</p>
-      </div>
-
-      <div class="detail-item">
-        <h4>Urgency</h4>
-        <p>${escapeHTML(urgency)}</p>
-      </div>
-
-      <div class="detail-item">
-        <h4>Priority score</h4>
-        <p>
-          ${escapeHTML(pr.score ?? '—')}
-          ·
-          ${escapeHTML(pr.band || 'N/A')}
-        </p>
-      </div>
-
-      <div class="detail-item">
-        <h4>Priority reason</h4>
-        <p>${escapeHTML(pr.priority_reason || '—')}</p>
-      </div>
-
-    </div>
-
-    <div class="outreach-box">
-
-      <h4>Personalized outreach</h4>
-
-      <textarea
-        id="outreach-${escapeHTML(p.lead_id)}"
-        placeholder="No outreach draft available."
-      >${escapeHTML(outreach)}</textarea>
-
-      <div class="outreach-actions">
-        <button
-          class="copy-btn copy-outreach"
-          type="button"
-        >
-          Copy
-        </button>
-      </div>
-
-    </div>
-
-    ${
-      qcFlags.length
-        ? `
-          <div class="review-note">
-            Human review note:
-            ${escapeHTML(qcFlags.join(' · '))}
-          </div>
-        `
-        : ''
-    }
-  `;
-
-  const checkbox =
-    row.querySelector('input[type="checkbox"]');
-
-    if (!completed) {
-      checkbox.addEventListener('change', e => {
-        e.stopPropagation();
-    
-        if (!e.target.checked) {
-          return;
-        }
-    
-        completingLeads[p.lead_id] = true;
-    
-        showToast(`${p.name || p.lead_id} moved to Completed`);
-    
-        renderWorkspace();
-    
-        setTimeout(() => {
-          contactedLeads[p.lead_id] = {
-            timestamp: new Date().toISOString()
-          };
-    
-          delete completingLeads[p.lead_id];
-    
-          saveContacted();
-          renderWorkspace();
-        }, 900);
-      });
-    }
-
-  row.addEventListener('click', e => {
-    if (
-      e.target.closest('.contact-checkbox') ||
-      e.target.closest('button') ||
-      e.target.closest('textarea')
-    ) {
-      return;
-    }
-
-    row.classList.toggle('open');
-    detail.classList.toggle('open');
-  });
-
-  detail
-    .querySelector('textarea')
-    .addEventListener('click', e => {
-      e.stopPropagation();
-    });
-
-    const outreachBox = detail.querySelector('textarea');
-
-    function resizeOutreachBox() {
-      outreachBox.style.height = 'auto';
-      outreachBox.style.height =
-        Math.max(190, outreachBox.scrollHeight) + 'px';
-    }
-    
-    resizeOutreachBox();
-    
-    outreachBox.addEventListener('input', e => {
-      STATE.outreach[p.lead_id] = e.target.value;
-      resizeOutreachBox();
-    });
-
-  detail
-    .querySelector('.copy-outreach')
-    .addEventListener('click', async e => {
-
-      e.stopPropagation();
-
-      const message =
-        detail.querySelector('textarea').value;
-
-      try {
-        await navigator.clipboard
-          .writeText(message);
-
-        e.target.textContent = 'Copied';
-
-        setTimeout(() => {
-          e.target.textContent = 'Copy';
-        }, 1200);
-
-      } catch {
-        e.target.textContent =
-          'Copy failed';
-
-        setTimeout(() => {
-          e.target.textContent = 'Copy';
-        }, 1200);
-      }
-    });
-
-  return {
-    row,
-    detail
-  };
-}
-
-function renderRemovedRows() {
-  const ledger =
-    document.getElementById('ledger');
-
-  const removed =
-    getRemovedLeads().filter(r => {
-
-      if (!searchTerm) {
-        return true;
-      }
-
-      const term =
-        searchTerm.toLowerCase();
-
-      return (
-        String(r.lead_id)
-          .toLowerCase()
-          .includes(term) ||
-        String(r.name || '')
-          .toLowerCase()
-          .includes(term)
-      );
-    });
-
-  if (!removed.length) {
-    ledger.innerHTML =
-      '<div class="empty-state">No removed leads.</div>';
-
-    return;
-  }
-
-  removed.forEach(r => {
-
-    const row =
-      document.createElement('div');
-
-    row.className = 'row';
-
-    row.innerHTML = `
-      <span class="id">
-        ${escapeHTML(r.lead_id)}
-      </span>
-
-      <span class="name">
-        ${escapeHTML(r.name || 'Unnamed lead')}
-        <span class="city">
-          ${escapeHTML(r.reason)}
-        </span>
-      </span>
-
-      <span class="priority-col">
-        <span class="badge no">
-          ${escapeHTML(r.status)}
-        </span>
-      </span>
-
-      <span></span>
-
-      <span class="chev">›</span>
-    `;
-
-    const detail =
-      document.createElement('div');
-
-    detail.className = 'detail';
-
-    detail.innerHTML = `
-      <div class="detail-grid">
-
-        <div class="detail-item">
-          <h4>Lead ID</h4>
-          <p>${escapeHTML(r.lead_id)}</p>
-        </div>
-
-        <div class="detail-item">
-          <h4>Status</h4>
-          <p>${escapeHTML(r.status)}</p>
-        </div>
-
-        <div class="detail-item detail-full">
-          <h4>Reason for removal</h4>
-          <p>${escapeHTML(r.reason)}</p>
-        </div>
-
-        ${
-          r.primary_id
-            ? `
-              <div class="detail-item">
-                <h4>Retained primary</h4>
-                <p>${escapeHTML(r.primary_id)}</p>
-              </div>
-            `
-            : ''
-        }
-
-      </div>
-    `;
-
-    row.addEventListener('click', () => {
-      row.classList.toggle('open');
-      detail.classList.toggle('open');
-    });
-
-    ledger.appendChild(row);
-    ledger.appendChild(detail);
-  });
-}
-
-function renderWorkspace() {
-  const ledger =
-    document.getElementById('ledger');
-
-  ledger.innerHTML = '';
-
-  if (currentTab === 'removed') {
-    renderRemovedRows();
-    return;
-  }
-
-  let rows;
-
-  if (currentTab === 'completed') {
-    rows = getCompletedLeads();
-  } else if (currentTab === 'review') {
-    rows = getReviewLeads();
-  } else {
-    rows = getActiveLeads();
-  }
-
-  rows = rows.filter(matchesSearch);
-
-  if (
-    currentTab === 'all' &&
-    priorityFilter !== 'all'
-  ) {
-    rows = rows.filter(
-      p =>
-        (p.priority || {}).band ===
-        priorityFilter
-    );
-  }
-
-  rows = sortLeads(rows);
-
-  if (!rows.length) {
-
-    let message =
-      'No active leads match these filters.';
-
-    if (currentTab === 'review') {
-      message =
-        'No leads currently require human review.';
-    }
-
-    if (currentTab === 'completed') {
-      message =
-        'No leads have been marked as contacted.';
-    }
-
-    if (currentTab === 'removed') {
-      message =
-        'No removed leads.';
-    }
-
-    ledger.innerHTML =
-      `<div class="empty-state">${message}</div>`;
-
-    return;
-  }
-
-  rows.forEach(p => {
-
-    const rendered =
-      renderLeadRow(
-        p,
-        currentTab === 'completed'
-      );
-
-    ledger.appendChild(rendered.row);
-    ledger.appendChild(rendered.detail);
-
-  });
-}
-
-document
-  .getElementById('workspaceTabs')
-  .addEventListener('click', e => {
-
-    const button =
-      e.target.closest('button');
-
-    if (!button) return;
-
-    document
-      .querySelectorAll('#workspaceTabs button')
-      .forEach(b =>
-        b.classList.remove('active')
-      );
-
-    button.classList.add('active');
-
-    currentTab =
-      button.dataset.filter;
-
-    renderWorkspace();
-  });
-
-  document
-  .getElementById('leadSearch')
-  .addEventListener('input', e => {
-
-    searchTerm =
-      e.target.value.trim().toLowerCase();
-
-    renderWorkspace();
-  });
-
-  document
-  .getElementById('priorityFilter')
-  .addEventListener('change', e => {
-
-    priorityFilter =
-      e.target.value === 'all'
-        ? 'all'
-        : e.target.value.charAt(0).toUpperCase() +
-          e.target.value.slice(1);
-
-    renderWorkspace();
-  });
-
-document
-  .getElementById('prioritySort')
-  .addEventListener('change', e => {
-    sortOrder = e.target.value;
-    renderWorkspace();
-  });
-
+// --- List controls -------------------------------------------------------------------------
+document.getElementById('leadSearch').addEventListener('input', (e) => {
+  searchTerm = e.target.value.trim().toLowerCase();
+  renderWorkspace();
+});
+document.getElementById('priorityFilter').addEventListener('change', (e) => {
+  priorityFilter = e.target.value === 'all' ? 'all' : e.target.value;
+  renderWorkspace();
+});
+document.getElementById('prioritySort').addEventListener('change', (e) => {
+  sortOrder = e.target.value;
+  renderWorkspace();
+});
+
+// --- CSV export -------------------------------------------------------------------------------
 function toCSV() {
   const headers = ['Lead','Name','Relevant','Reason','Confidence','Urgency','Intent','Profile','Need','Objection','Objection Severity','Missing Information','Priority','Priority Reason','Next Action','Outreach','QC Flags'];
   const esc = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
@@ -1830,40 +1888,62 @@ function toCSV() {
   });
   return lines.join('\n');
 }
-let skillcaseGlobe = null;
 
-function showProcessingScreen() {
-  document.getElementById('uploadScreen').style.display = 'none';
-  document.getElementById('workspaceScreen').style.display = 'none';
-  document.getElementById('processingScreen').style.display = 'flex';
-
-  requestAnimationFrame(() => {
-    if (!skillcaseGlobe && window.createSkillcaseGlobe) {
-      skillcaseGlobe = window.createSkillcaseGlobe();
+document.getElementById('downloadBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('downloadBtn');
+  btn.disabled = true;
+  try {
+    // Export exactly what the user currently sees: the frontend is the
+    // source of truth for regenerated outreach, contacted and removed
+    // state, so it POSTs its current state and downloads the CSV built
+    // from it — never cached pipeline output or a previous run.
+    const res = await fetch('/api/export/csv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: {
+        primaries: STATE.primaries,
+        lead_audit: STATE.leadAudit,
+        classifications: STATE.classifications,
+        enrichments: STATE.enrichments,
+        outreach: STATE.outreach,
+        qc: STATE.qc,
+        contacted: contactedLeads,
+      } }),
+    });
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try { const data = await res.json(); if (data && data.error) detail = data.error; } catch {}
+      throw new Error(detail);
     }
-  });
-}
-
-function showWorkspace() {
-  document.getElementById('processingScreen').style.display = 'none';
-  document.getElementById('workspaceScreen').style.display = 'block';
-
-  if (skillcaseGlobe) {
-    skillcaseGlobe.destroy();
-    skillcaseGlobe = null;
+    const blob = new Blob([await res.text()], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'skillcase_lead_manifest.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('CSV downloaded.');
+  } catch (err) {
+    console.error('CSV export failed:', err);
+    showToast('CSV export failed — ' + (err && err.message ? err.message : 'unknown error'));
+  } finally {
+    btn.disabled = false;
   }
-}
-
-document.getElementById('runBtn').addEventListener('click', runPipeline);
-document.getElementById('downloadBtn').addEventListener('click', () => {
-  const blob = new Blob([toCSV()], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'skillcase_lead_manifest.csv';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 });
 
+async function postJSON(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = null;
+  try { data = await res.json(); } catch {}
+  if (!res.ok) {
+    const detail = (data && data.error) ? data.error : `HTTP ${res.status}`;
+    throw new Error(detail);
+  }
+  return data;
+}
 </script>
 </body>
 </html>
