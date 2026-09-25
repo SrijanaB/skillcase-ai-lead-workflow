@@ -17,8 +17,12 @@ import csv
 import io
 import json
 import os
+import re
+import subprocess
 import sys
 import unittest
+
+import pipeline  # noqa: E402  (after sys.path setup)
 from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -79,6 +83,13 @@ RESULT_SEED = {
         "L002": "ORIGINAL DRAFT FOR L002",
     },
     "qc": {"L001": [], "L002": [], "L003": []},
+    "ai_review": {
+        "L001": {"lead_id": "L001", "status": "pass", "confidence": 0.96,
+                 "issues": [], "recommended_action": "No action needed."},
+        "L002": {"lead_id": "L002", "status": "review", "confidence": 0.62,
+                 "issues": ["Urgency not supported by the conversation."],
+                 "recommended_action": "Verify urgency before contacting."},
+    },
 }
 
 
@@ -120,8 +131,12 @@ class TestRegenerate(AppRouteTestBase):
 
     def test_a_regenerate_accepts_frontend_payload_and_returns_outreach(self):
         """The frontend sends {"lead_id": "L001"} — that exact shape must work."""
-        with mock.patch("pipeline.generate_outreach") as mock_gen:
+        with mock.patch("pipeline.generate_outreach") as mock_gen, \
+             mock.patch("pipeline.review_leads") as mock_review:
             mock_gen.return_value = {"L001": "REGENERATED DRAFT FOR L001"}
+            mock_review.return_value = {"L001": {"lead_id": "L001", "status": "pass",
+                                                 "confidence": 0.95, "issues": [],
+                                                 "recommended_action": "No action needed."}}
             resp = self.post_json("/api/outreach/regenerate", {"lead_id": "L001"})
 
         self.assertEqual(resp.status_code, 200)
@@ -141,8 +156,12 @@ class TestRegenerate(AppRouteTestBase):
         self.assertEqual(items[0]["enrichment"]["urgency"], "high")
 
     def test_a_only_requested_lead_is_affected(self):
-        with mock.patch("pipeline.generate_outreach") as mock_gen:
+        with mock.patch("pipeline.generate_outreach") as mock_gen, \
+             mock.patch("pipeline.review_leads") as mock_review:
             mock_gen.return_value = {"L001": "REGENERATED DRAFT FOR L001"}
+            mock_review.return_value = {"L001": {"lead_id": "L001", "status": "pass",
+                                                 "confidence": 0.9, "issues": [],
+                                                 "recommended_action": "No action needed."}}
             resp = self.post_json("/api/outreach/regenerate", {"lead_id": "L001"})
         self.assertEqual(resp.status_code, 200)
 
@@ -156,7 +175,24 @@ class TestRegenerate(AppRouteTestBase):
                          RESULT_SEED["enrichments"])
         self.assertEqual(app_module._CURRENT_RESULT["primaries"],
                          RESULT_SEED["primaries"])
-        self.assertEqual(app_module._CURRENT_RESULT["qc"], RESULT_SEED["qc"])
+        # Rule QC is re-run for the regenerated lead (spec: rerun the existing
+        # rule-based QC); other leads' QC is untouched.
+        expected_flags = pipeline.rule_based_qc(
+            RESULT_SEED["primaries"][0],
+            RESULT_SEED["classifications"]["L001"],
+            RESULT_SEED["enrichments"]["L001"],
+            "REGENERATED DRAFT FOR L001",
+            RESULT_SEED["primaries"][0].get("priority"),
+        )
+        self.assertEqual(app_module._CURRENT_RESULT["qc"]["L001"], expected_flags)
+        self.assertEqual(app_module._CURRENT_RESULT["qc"]["L002"], RESULT_SEED["qc"]["L002"])
+        self.assertEqual(app_module._CURRENT_RESULT["qc"]["L003"], RESULT_SEED["qc"]["L003"])
+        # AI review is re-run for the regenerated lead only; other reviews untouched
+        review = app_module._CURRENT_RESULT["ai_review"]["L001"]
+        self.assertEqual(review["lead_id"], "L001")
+        self.assertEqual(review["status"], "pass")
+        self.assertEqual(app_module._CURRENT_RESULT["ai_review"]["L002"],
+                         RESULT_SEED["ai_review"]["L002"])
 
     def test_b_empty_payload_is_4xx_json(self):
         resp = self.post_json("/api/outreach/regenerate", {})
@@ -193,6 +229,41 @@ class TestRegenerate(AppRouteTestBase):
         self.assertEqual(app_module._CURRENT_RESULT["outreach"]["L001"],
                          "ORIGINAL DRAFT FOR L001")
 
+    def test_a_regenerate_response_includes_qc_and_ai_review(self):
+        """Regeneration re-runs rule QC + AI review for that lead only."""
+        with mock.patch("pipeline.generate_outreach") as mock_gen, \
+             mock.patch("pipeline.review_leads") as mock_review:
+            mock_gen.return_value = {"L001": "BRAND NEW DRAFT"}
+            mock_review.return_value = {"L001": {"lead_id": "L001", "status": "pass",
+                                                 "confidence": 0.9, "issues": [],
+                                                 "recommended_action": "No action needed."}}
+            resp = self.post_json("/api/outreach/regenerate", {"lead_id": "L001"})
+
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data["outreach"], "BRAND NEW DRAFT")
+        self.assertIsInstance(data["qc_flags"], list)
+        self.assertEqual(data["ai_review"]["lead_id"], "L001")
+        self.assertIn(data["ai_review"]["status"], ("pass", "review"))
+        mock_review.assert_called_once()
+        # The review item for the regenerated lead uses the NEW outreach
+        reviewed_item = mock_review.call_args[0][0][0]
+        self.assertEqual(reviewed_item["outreach"], "BRAND NEW DRAFT")
+
+    def test_a_regenerate_survives_ai_review_failure(self):
+        """AI review is advisory: a review crash must not lose the new draft."""
+        with mock.patch("pipeline.generate_outreach") as mock_gen, \
+             mock.patch("pipeline.review_leads", side_effect=RuntimeError("review down")):
+            mock_gen.return_value = {"L001": "DRAFT DESPITE REVIEW FAILURE"}
+            resp = self.post_json("/api/outreach/regenerate", {"lead_id": "L001"})
+
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data["outreach"], "DRAFT DESPITE REVIEW FAILURE")
+        self.assertEqual(data["ai_review"]["status"], "review")  # conservative fallback
+        self.assertEqual(app_module._CURRENT_RESULT["outreach"]["L001"],
+                         "DRAFT DESPITE REVIEW FAILURE")
+
 
 class TestCsvExport(AppRouteTestBase):
     """Test C + D: /api/export/csv reflects the posted current state."""
@@ -210,6 +281,7 @@ class TestCsvExport(AppRouteTestBase):
                 "L002": "ORIGINAL DRAFT FOR L002",
             },
             "qc": copy.deepcopy(RESULT_SEED["qc"]),
+            "ai_review": copy.deepcopy(RESULT_SEED["ai_review"]),
             "contacted": {"L002": {"timestamp": "2026-09-25T10:00:00Z"}},
         }
 
@@ -242,15 +314,38 @@ class TestCsvExport(AppRouteTestBase):
         # The old cached draft must NOT appear anywhere.
         self.assertNotIn("ORIGINAL DRAFT FOR L001", resp.get_data(as_text=True))
 
+    def test_c_csv_includes_ai_review_column(self):
+        resp = self.export_csv(self.current_ui_state())
+        self.assertIn("AI Review", app_module.CSV_EXPORT_HEADERS)
+        rows = self.csv_rows(resp)
+        by_id = {r[0]: r for r in rows[1:]}
+
+        # L001 passes: clean AI Review cell. L002 is flagged: its issues appear.
+        self.assertEqual(by_id["L001"][17], "Pass")
+        self.assertIn("Urgency not supported", by_id["L002"][17])
+
+        # L003 is not-relevant, so Removed takes precedence (mirrors the UI:
+        # removed leads never enter Needs Human Review). Prove that an
+        # AI-review flag ALONE puts a clean relevant lead (L001) into
+        # Needs Human Review.
+        state = self.current_ui_state()
+        state["ai_review"]["L001"] = {"lead_id": "L001", "status": "review",
+                                      "confidence": 0.55,
+                                      "issues": ["Intent not grounded."],
+                                      "recommended_action": "Verify intent."}
+        resp3 = self.export_csv(state)
+        by_id3 = {r[0]: r for r in self.csv_rows(resp3)[1:]}
+        self.assertEqual(by_id3["L001"][18], "Needs Human Review")
+
     def test_c_csv_reflects_contacted_removed_and_flagged_state(self):
         resp = self.export_csv(self.current_ui_state())
         rows = self.csv_rows(resp)
         by_id = {r[0]: r for r in rows[1:]}
 
         # Status column: contacted, removed, active
-        self.assertEqual(by_id["L002"][17], "Contacted")
-        self.assertEqual(by_id["L003"][17], "Removed — Not Relevant")
-        self.assertEqual(by_id["L001"][17], "Active")
+        self.assertEqual(by_id["L002"][18], "Contacted")
+        self.assertEqual(by_id["L003"][18], "Removed — Not Relevant")
+        self.assertEqual(by_id["L001"][18], "Active")
 
         # Merged duplicate and flagged duplicate audit records are represented.
         self.assertEqual(by_id["L008"][17], "Removed — Duplicate (merged)")
@@ -307,10 +402,12 @@ class TestWorkspaceState(AppRouteTestBase):
         # carries the merged duplicate (Removed) and the flagged duplicate
         # (Needs Human Review).
         for key in ("primaries", "lead_audit", "duplicate_groups",
-                    "classifications", "enrichments", "outreach", "qc"):
+                    "classifications", "enrichments", "outreach", "qc", "ai_review"):
             self.assertIn(key, result)
         self.assertEqual(len(result["primaries"]), 3)
         self.assertIn("L001", result["outreach"])
+        self.assertEqual(result["ai_review"]["L001"]["status"], "pass")
+        self.assertEqual(result["ai_review"]["L002"]["status"], "review")
         statuses = {a["lead_id"]: a["status"] for a in result["lead_audit"]}
         self.assertEqual(statuses, {"L008": "merged", "L028": "flagged"})
 
@@ -325,6 +422,98 @@ class TestWorkspaceState(AppRouteTestBase):
         resp = self.client.get("/api/workspace/state")
         self.assertEqual(resp.status_code, 204)
         self.assertEqual(resp.get_data(as_text=True), "")
+
+
+class TestAiReviewSurfacingPolicy(AppRouteTestBase):
+    """UI surfacing policy: AI Review is a backend QC mechanism.
+
+    PASS results are stored but never surfaced; only 'review' results are
+    surfaced (concise warning, no confidence score). These tests pin the
+    client-side rendering contract implemented by aiReviewHTML() in
+    static/index.html.
+    """
+
+    PASS_REVIEW = {"lead_id": "L001", "status": "pass", "confidence": 0.98,
+                   "issues": [], "recommended_action": "No action needed."}
+    FLAG_REVIEW = {"lead_id": "L007", "status": "review", "confidence": 0.89,
+                   "issues": ["Outreach introduces a timeline that was not stated by the lead."],
+                   "recommended_action": "Review outreach before sending."}
+
+    def render_ai_block(self, review):
+        """Evaluate aiReviewHTML() against a JS STATE with one lead (L001)."""
+        html_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "static", "index.html",
+        )
+        with open(html_path) as f:
+            page = f.read()
+        m = re.search(r"function aiReviewHTML\(p\) \{.*?\n\}", page, re.S)
+        self.assertTrue(m, "aiReviewHTML() not found in static/index.html")
+        state = json.dumps({"ai_review": {"L001": review}})
+        script = (
+            "const STATE = " + state + ";"
+            "const p = { lead_id: 'L001' };"
+            "const escapeHTML = (v) => String(v ?? '').replace(/&/g, '&amp;');"
+            + m.group(0) +
+            "; console.log(aiReviewHTML(p))"
+        )
+        proc = subprocess.run(
+            ["node", "-e", script], capture_output=True, text=True, timeout=10
+        )
+        if proc.returncode != 0:
+            self.fail(f"aiReviewHTML eval failed: {proc.stderr}")
+        return proc.stdout.strip()
+
+    def test_pass_review_is_not_surfaced_and_backend_still_stores_it(self):
+        # UI: PASS renders nothing at all (no block, no confidence, no
+        # "No action needed", no empty container).
+        self.assertEqual(self.render_ai_block(self.PASS_REVIEW), "")
+
+        # Backend: the result is still stored for QC/audit purposes.
+        self.post_json("/api/workspace/result", {"result": RESULT_SEED})
+        state = self.client.get("/api/workspace/state").get_json()["result"]
+        self.assertEqual(state["ai_review"]["L001"], RESULT_SEED["ai_review"]["L001"])
+        self.assertEqual(state["ai_review"]["L001"]["status"], "pass")
+
+    def test_flagged_review_is_surfaced_without_confidence(self):
+        html = self.render_ai_block(self.FLAG_REVIEW)
+
+        # Surfaced: concise warning + the specific issue + action.
+        self.assertIn("Review needed", html)
+        self.assertIn("Outreach introduces a timeline", html)
+        self.assertIn("Review outreach before sending.", html)
+
+        # Never surfaced: the AI Review label, status word or confidence.
+        self.assertNotIn("AI Review", html)
+        self.assertNotIn("PASS", html)
+        self.assertNotIn("REVIEW", html.replace("Review needed", ""))
+        self.assertNotIn("89", html)  # confidence percentage hidden
+
+        # Backend: flagged result stored too.
+        self.post_json("/api/workspace/result", {"result": RESULT_SEED})
+        state = self.client.get("/api/workspace/state").get_json()["result"]
+        self.assertEqual(state["ai_review"]["L002"]["status"], "review")
+
+    def test_flagged_review_moves_lead_into_needs_human_review(self):
+        """An AI-review flag feeds the existing human-review queue."""
+        self.post_json("/api/workspace/result", {"result": RESULT_SEED})
+        state = self.client.get("/api/workspace/state").get_json()["result"]
+        # L002 carries a 'review' AI verdict in the seed.
+        self.assertEqual(state["ai_review"]["L002"]["status"], "review")
+        # ...and its export status is Needs Human Review (queue membership).
+        resp = self.post_json("/api/export/csv", {"state": {
+            "primaries": RESULT_SEED["primaries"],
+            "lead_audit": RESULT_SEED["lead_audit"],
+            "classifications": RESULT_SEED["classifications"],
+            "enrichments": RESULT_SEED["enrichments"],
+            "outreach": RESULT_SEED["outreach"],
+            "qc": RESULT_SEED["qc"],
+            "ai_review": RESULT_SEED["ai_review"],
+            "contacted": {},
+        }})
+        rows = {r[0]: r for r in list(csv.reader(io.StringIO(resp.get_data(as_text=True))))[1:]}
+        self.assertEqual(rows["L002"][18], "Needs Human Review")
+        self.assertEqual(rows["L001"][18], "Active")  # PASS leads stay active
 
 
 if __name__ == "__main__":

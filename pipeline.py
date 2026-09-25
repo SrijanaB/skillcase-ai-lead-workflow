@@ -56,12 +56,14 @@ _RETRYABLE_CODES = {429, 500, 502, 503, 504}
 CLASSIFY_BATCH = 15
 ENRICH_BATCH = 8
 OUTREACH_BATCH = 6
+REVIEW_BATCH = 8
 MAX_CONCURRENT_REQUESTS = 2           # stay comfortably under free-tier RPM
 
 # Per-batch output budgets, sized to the content (not inflated).
 CLASSIFY_MAX_TOKENS = 2000
 ENRICH_MAX_TOKENS = 6000
 OUTREACH_MAX_TOKENS = 2000
+REVIEW_MAX_TOKENS = 3000
 
 _client = None
 
@@ -147,6 +149,21 @@ OUTREACH_SCHEMA = {
             "outreach": {"type": "string"},
         },
         "required": ["lead_id", "outreach"],
+    },
+}
+
+REVIEW_SCHEMA = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "lead_id": {"type": "string"},
+            "status": {"type": "string", "enum": ["pass", "review"]},
+            "confidence": {"type": "number"},
+            "issues": {"type": "array", "items": {"type": "string"}},
+            "recommended_action": {"type": "string"},
+        },
+        "required": ["lead_id", "status", "confidence", "issues", "recommended_action"],
     },
 }
 
@@ -1144,6 +1161,166 @@ def generate_outreach(items: list[dict]) -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
+# Stage 7: AI review (semantic second-pass; identifies problems, never fixes)
+# ---------------------------------------------------------------------------
+
+_AI_REVIEW_PROMPT = """You are a meticulous second-pass reviewer for Skillcase, a company that prepares nurses and allied healthcare workers in India to learn German and get placed as nurses in Germany.
+
+A first pipeline already produced, for each lead: a relevance classification, a structured enrichment, a rule-based priority score and a personalized outreach draft. Rule-based quality checks (exact word matching) have already run. Your job is the SEMANTIC pass those rules cannot do: does the generated lead intelligence actually make sense based on the ORIGINAL lead information?
+
+The original lead data and conversation below are ALWAYS the source of truth.
+
+For each lead, check:
+
+1. GROUNDING — Are the enrichment's profile, intent, need and objection actually supported by what the lead said? Flag invented facts and unsupported assumptions. Do not credit claims inferred merely from education, profession, experience or German level; those are background, not evidence of intent or need.
+
+2. CLASSIFICATION — Does the Relevant / Not Relevant verdict make sense given the original lead information? Flag obvious contradictions only.
+
+3. ENRICHMENT — Is the stated intent grounded in the conversation? Is the need grounded? Is the objection grounded? Are urgency and engagement reasonable for what the lead actually said and did? Does the next action make sense? Do not infer facts from background fields alone.
+
+4. PRIORITY — The score is computed by a fixed deterministic formula (intent 40% + urgency 25% + fit 20% + engagement 15%). Do NOT recalculate or second-guess the arithmetic. Only flag obvious semantic inconsistencies, e.g. the lead clearly said one thing that contradicts the inputs the score relies on.
+
+5. OUTREACH — Does the draft genuinely reflect this specific lead's situation, address their concern where appropriate, and avoid introducing information the lead never gave? Flag drafts that invent features, prices, eligibility, timelines or outcomes; promise jobs, placement, visas, salaries or guaranteed outcomes; or ignore an important concern the lead actually raised.
+
+6. EXISTING RULE-BASED QC FLAGS — Treat them as context only. A rule flag alone is NOT automatically a problem: assess whether it is meaningful for this lead.
+
+Be appropriately strict, not hair-trigger: PASS leads whose intelligence is grounded and internally consistent; REVIEW leads with real, specific, actionable problems a human should look at. Most well-grounded leads should PASS. Every issue you raise must point at something concrete in the source data.
+
+You are a REVIEWER ONLY. Never rewrite the enrichment, the outreach, the classification or the priority. Never invent missing information. Only identify problems.
+
+Respond with ONLY a JSON array, no prose, no markdown fences, one object per lead, in this exact shape:
+[{{"lead_id":"L001","status":"pass","confidence":0.95,"issues":[],"recommended_action":"No action needed."}}]
+
+status must be "pass" or "review"; confidence is 0.0-1.0; issues is a list of short specific strings (empty when passing); recommended_action is one short sentence ("No action needed." when passing).
+
+Leads to review:
+{payload}"""
+
+
+def _review_placeholder(lead: dict) -> dict:
+    """Conservative fallback when the reviewer fails to echo a lead.
+
+    Routes to human review rather than silently passing a lead the reviewer
+    never actually assessed.
+    """
+    return {
+        "lead_id": lead.get("lead_id"),
+        "status": "review",
+        "confidence": 0.0,
+        "issues": ["AI review did not return a result for this lead -- verify manually."],
+        "recommended_action": "Verify this lead's intelligence manually.",
+    }
+
+
+def _normalize_review(record: dict) -> dict:
+    """Clamp a review record to the documented output shape.
+
+    Tolerates model drift (status casing, missing fields, out-of-range
+    confidence, non-string issues) without crashing the pipeline or letting
+    malformed values leak into the UI/CSV.
+    """
+    status = str(record.get("status") or "review").strip().lower()
+    if status not in ("pass", "review"):
+        status = "review"
+    try:
+        confidence = float(record.get("confidence", 0.0))
+    except (TypeError, ValueError):
+        confidence = 0.0
+    confidence = max(0.0, min(1.0, confidence))
+    raw_issues = record.get("issues")
+    if isinstance(raw_issues, str):
+        raw_issues = [raw_issues]
+    issues = [str(i).strip() for i in raw_issues if str(i).strip()] if isinstance(raw_issues, list) else []
+    if status == "pass" and issues:
+        status = "review"  # a pass with issues is a contradiction
+    if status == "review" and not issues:
+        issues = ["AI review flagged this lead without a specific issue -- verify manually."]
+    action = str(record.get("recommended_action") or "").strip()
+    if not action:
+        action = "No action needed." if status == "pass" else "Review this lead before sending."
+    return {
+        "lead_id": record.get("lead_id"),
+        "status": status,
+        "confidence": round(confidence, 2),
+        "issues": issues,
+        "recommended_action": action,
+    }
+
+
+def review_leads(items: list[dict]) -> dict[str, dict]:
+    """Second-pass semantic AI review of the finalized lead intelligence.
+
+    `items` are {"lead": ..., "classification": ..., "enrichment": ...,
+    "priority": ..., "outreach": ..., "qc_flags": [...]} wrappers for the
+    leads to review (callers pass processed relevant leads only). The lead's
+    original data/conversation is included as the source of truth; the AI
+    reviewer only identifies problems -- it never rewrites anything.
+
+    Returns {lead_id: {status, confidence, issues, recommended_action}}.
+    Uses the shared Gemini batching/retry/schema infrastructure.
+    """
+    if not items:
+        return {}
+    batches = list(_batches(items, REVIEW_BATCH))
+
+    def build_payload_item(item: dict) -> dict:
+        lead = item.get("lead") or {}
+        priority = item.get("priority") or {}
+        qc_flags = item.get("qc_flags") or []
+        return {
+            "lead_id": lead.get("lead_id"),
+            "original_lead": {
+                "name": lead.get("name"),
+                "city": lead.get("city"),
+                "education": lead.get("education"),
+                "experience_years": lead.get("experience_years"),
+                "goal": lead.get("goal"),
+                "german_level": lead.get("german_level"),
+                "source": lead.get("source"),
+                "conversation": lead.get("conversation"),
+                "notes": lead.get("notes"),
+                "missing_fields": lead.get("missing_fields"),
+            },
+            "classification": item.get("classification") or {},
+            "enrichment": item.get("enrichment") or {},
+            "priority": {
+                "band": priority.get("band"),
+                "score": priority.get("score"),
+                "priority_reason": priority.get("priority_reason"),
+            },
+            "outreach": item.get("outreach") or "",
+            "rule_based_qc_flags": qc_flags,
+        }
+
+    def build_prompt(batch: list[dict]) -> str:
+        payload = [build_payload_item(i) for i in batch]
+        return _AI_REVIEW_PROMPT.format(payload=json.dumps(payload, ensure_ascii=False))
+
+    def merge(batch: list[dict], parsed: list) -> list[dict]:
+        # Batch items are {"lead": ...} wrappers, so both the id lookup and
+        # the placeholder fallback must unwrap the lead.
+        unwrap = lambda item: (item.get("lead") or {}).get("lead_id")  # noqa: E731
+        normalized = [_normalize_review(r) for r in parsed if isinstance(r, dict)]
+        return _match_records_to_leads(
+            batch, normalized,
+            fallback=lambda item: _review_placeholder(item.get("lead") or {}),
+            get_id=unwrap,
+        )
+
+    results = _run_batched(
+        batches, build_prompt, merge,
+        max_tokens=REVIEW_MAX_TOKENS, schema=REVIEW_SCHEMA,
+    )
+    out: dict[str, dict] = {}
+    for batch_results in results:
+        for r in batch_results:
+            lid = r.get("lead_id")
+            if lid:
+                out[lid] = r
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Stage 6: QC (pure rules, no AI)
 # ---------------------------------------------------------------------------
 
@@ -1442,6 +1619,31 @@ def run_full_pipeline_stream(raw_leads: list[dict]) -> Iterator[tuple[str, str, 
         {"qc": qc},
     )
 
+    # --- Stage 7: AI review (semantic second-pass, relevant leads only) ------
+    # Records excluded from active processing (unresolved conflicting
+    # duplicates, e.g. L028) are NOT reviewed: they never went through
+    # classification/enrichment/priority/outreach, and forcing them through
+    # would change the existing duplicate-handling behavior.
+    review_items = [
+        {
+            "lead": p,
+            "classification": classifications.get(p["lead_id"], {}),
+            "enrichment": enrichments.get(p["lead_id"], {}),
+            "priority": p.get("priority") or {},
+            "outreach": outreach.get(p["lead_id"], ""),
+            "qc_flags": qc.get(p["lead_id"], []),
+        }
+        for p in relevant_leads
+    ]
+    yield ("ai_review", "active", f"AI-reviewing final intelligence for {len(review_items)} lead(s)...", None)
+    ai_review = review_leads(review_items)
+    n_review = sum(1 for r in ai_review.values() if r.get("status") == "review")
+    yield (
+        "ai_review", "done",
+        f"AI review: {n_review} lead(s) need a human look, {len(ai_review) - n_review} passed.",
+        {"ai_review": ai_review},
+    )
+
     runtime = round(time.time() - started, 2)
     result = {
         "primaries": primaries,
@@ -1451,6 +1653,7 @@ def run_full_pipeline_stream(raw_leads: list[dict]) -> Iterator[tuple[str, str, 
         "enrichments": enrichments,
         "outreach": outreach,
         "qc": qc,
+        "ai_review": ai_review,
         "summary": {
             "raw_leads": len(raw_leads),
             "primaries": len(primaries),
@@ -1460,6 +1663,8 @@ def run_full_pipeline_stream(raw_leads: list[dict]) -> Iterator[tuple[str, str, 
             "prioritized": sum(1 for p in primaries if (p.get("priority") or {}).get("band") not in (None, "N/A")),
             "with_outreach": len(outreach),
             "needs_review": n_flagged,
+            "ai_review_flagged": n_review,
+            "ai_review_passed": len(ai_review) - n_review,
             "duplicates_merged": sum(len(g["exact"]) for g in cleaned["duplicate_groups"]),
             "duplicates_flagged": sum(len(g["fuzzy"]) for g in cleaned["duplicate_groups"]),
             "runtime_seconds": runtime,

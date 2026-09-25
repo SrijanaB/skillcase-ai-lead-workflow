@@ -5,6 +5,7 @@ Covers: priority scoring, dedupe accounting, QC rules, messy-field safety,
 Gemini-layer robustness (retries, malformed output, schema fallback),
 batching/echo-validation, and a full offline 30-lead pipeline run.
 """
+import copy
 import json
 import os
 import sys
@@ -723,14 +724,28 @@ class TestFullPipelineOffline(unittest.TestCase):
         def fake_outreach(items):
             return {i["lead"]["lead_id"]: f"Hi {i['lead']['name']}, about your question..." for i in items}
 
+        def fake_review(items):
+            return {
+                i["lead"]["lead_id"]: {
+                    "lead_id": i["lead"]["lead_id"], "status": "pass", "confidence": 0.95,
+                    "issues": [], "recommended_action": "No action needed.",
+                }
+                for i in items
+            }
+
         with mock.patch.object(pipeline, "classify_leads", side_effect=fake_classify), \
              mock.patch.object(pipeline, "enrich_leads", side_effect=fake_enrich), \
-             mock.patch.object(pipeline, "generate_outreach", side_effect=fake_outreach):
+             mock.patch.object(pipeline, "generate_outreach", side_effect=fake_outreach), \
+             mock.patch.object(pipeline, "review_leads", side_effect=fake_review):
             result = pipeline.run_full_pipeline(self.raw_leads)
 
         self.assertEqual(result["summary"]["raw_leads"], n_raw)
         self.assertEqual(result["summary"]["primaries"], 27)
         self.assertEqual(len(result["classifications"]), 27)
+        # AI review runs for relevant leads only and lands in the result
+        n_relevant = sum(1 for c in result["classifications"].values() if c["relevant"])
+        self.assertEqual(len(result["ai_review"]), n_relevant)
+        self.assertEqual(result["summary"]["ai_review_passed"], n_relevant)
         # Enrichment must run for relevant leads only
         n_relevant = sum(1 for c in result["classifications"].values() if c["relevant"])
         self.assertEqual(len(captured_enrich_leads), n_relevant)
@@ -750,15 +765,141 @@ class TestFullPipelineOffline(unittest.TestCase):
         events = []
         with mock.patch.object(pipeline, "classify_leads", return_value={}), \
              mock.patch.object(pipeline, "enrich_leads", return_value={}), \
-             mock.patch.object(pipeline, "generate_outreach", return_value={}):
+             mock.patch.object(pipeline, "generate_outreach", return_value={}), \
+             mock.patch.object(pipeline, "review_leads", return_value={}):
             for stage, status, message, payload in pipeline.run_full_pipeline_stream(self.raw_leads):
                 events.append(stage)
 
         self.assertEqual(
             events,
             ["clean", "clean", "classify", "classify", "enrich", "enrich",
-             "prioritize", "prioritize", "outreach", "outreach", "qc", "qc", "done"],
+             "prioritize", "prioritize", "outreach", "outreach", "qc", "qc",
+             "ai_review", "ai_review", "done"],
         )
+
+
+class TestAiReview(unittest.TestCase):
+    """AI Review stage: semantic second-pass reviewer (Gemini mocked out)."""
+
+    def _lead(self, lead_id="L001", conversation="I want to start B1 classes next month"):
+        return {
+            "lead_id": lead_id,
+            "name": "Priya Sharma",
+            "city": "Delhi",
+            "education": "BSc Nursing",
+            "experience_years": 3,
+            "german_level": "A2",
+            "goal": "Work as a nurse in Germany",
+            "source": "Instagram",
+            "conversation": conversation,
+        }
+
+    def _item(self, lead=None, outreach="Hi Priya, you mentioned starting B1 classes next month — shall we set up a plan?", qc_flags=None):
+        lead = lead or self._lead()
+        return {
+            "lead": lead,
+            "classification": {"relevant": True, "confidence": 0.9, "reason": "nurse targeting Germany"},
+            "enrichment": {
+                "profile": "Nurse, 3 yrs experience", "intent": "start B1 classes",
+                "intent_level": "high", "need": "B1 course", "objection": "Not stated",
+                "urgency": "high", "engagement_level": "high",
+                "missing_info": "None", "next_action": "Schedule a call",
+            },
+            "priority": {"band": "High", "score": 88, "priority_reason": "high intent and urgency"},
+            "outreach": outreach,
+            "qc_flags": qc_flags or [],
+        }
+
+    def test_review_pass_result(self):
+        parsed = [{
+            "lead_id": "L001", "status": "pass", "confidence": 0.95,
+            "issues": [], "recommended_action": "No action needed.",
+        }]
+        with mock.patch.object(pipeline, "_ask_for_json_array_with_retry", return_value=parsed) as ask:
+            result = pipeline.review_leads([self._item()])
+
+        self.assertEqual(result["L001"]["status"], "pass")
+        self.assertEqual(result["L001"]["issues"], [])
+        self.assertEqual(result["L001"]["recommended_action"], "No action needed.")
+        # The reviewer receives the original conversation as source of truth
+        payload = ask.call_args[0][0]
+        self.assertIn("I want to start B1 classes next month", payload)
+
+    def test_review_review_result(self):
+        parsed = [{
+            "lead_id": "L001", "status": "review", "confidence": 0.89,
+            "issues": ["Outreach introduces a timeline that was not stated by the lead."],
+            "recommended_action": "Review outreach before sending.",
+        }]
+        with mock.patch.object(pipeline, "_ask_for_json_array_with_retry", return_value=parsed):
+            result = pipeline.review_leads([self._item()])
+
+        self.assertEqual(result["L001"]["status"], "review")
+        self.assertEqual(result["L001"]["issues"],
+                         ["Outreach introduces a timeline that was not stated by the lead."])
+        self.assertEqual(result["L001"]["recommended_action"], "Review outreach before sending.")
+
+    def test_review_flags_unsupported_outreach_claim(self):
+        """The prompt directs the reviewer to flag invented outcomes, and the
+        reviewer's verdict must survive normalization unchanged."""
+        lead = self._lead(conversation="Just asking generally, no plans yet")
+        item = self._item(lead=lead, outreach="We guarantee you a nursing job in Germany within 6 months!")
+        parsed = [{
+            "lead_id": lead["lead_id"], "status": "review", "confidence": 0.91,
+            "issues": ["Outreach promises a guaranteed job and a fixed timeline, neither of which the lead stated."],
+            "recommended_action": "Rewrite outreach before sending.",
+        }]
+        with mock.patch.object(pipeline, "_ask_for_json_array_with_retry", return_value=parsed) as ask:
+            result = pipeline.review_leads([item])
+
+        self.assertEqual(result[lead["lead_id"]]["status"], "review")
+        self.assertTrue(any("guarantee" in i.lower() for i in result[lead["lead_id"]]["issues"]))
+        # The outreach itself is passed through for context, never rewritten
+        self.assertIn("We guarantee you a nursing job", ask.call_args[0][0])
+
+    def test_review_normalizes_malformed_model_output(self):
+        """Drift (casing, bad confidence, pass-with-issues) is clamped, never crashes."""
+        parsed = [
+            {"lead_id": "L001", "status": "PASS", "confidence": 7, "issues": []},
+            {"lead_id": "L002", "status": "pass", "confidence": 0.9,
+             "issues": ["contradicts the conversation"]},
+            {"lead_id": "L003", "status": "review", "confidence": "oops"},
+        ]
+        leads = [self._lead("L001"), self._lead("L002"), self._lead("L003")]
+        with mock.patch.object(pipeline, "_ask_for_json_array_with_retry", return_value=parsed):
+            result = pipeline.review_leads([self._item(l) for l in leads])
+
+        self.assertEqual(result["L001"]["status"], "pass")
+        self.assertEqual(result["L001"]["confidence"], 1.0)  # clamped to [0, 1]
+        self.assertEqual(result["L002"]["status"], "review")  # pass + issues -> review
+        self.assertEqual(result["L003"]["status"], "review")
+        self.assertTrue(result["L003"]["issues"])  # review without issues gets one
+
+    def test_review_placeholder_when_model_skips_lead(self):
+        with mock.patch.object(pipeline, "_ask_for_json_array_with_retry", return_value=[]):
+            result = pipeline.review_leads([self._item(self._lead("L001"))])
+
+        self.assertEqual(result["L001"]["status"], "review")  # never silently passes
+        self.assertTrue(result["L001"]["issues"])
+
+    def test_review_empty_input_is_noop(self):
+        self.assertEqual(pipeline.review_leads([]), {})
+
+    def test_review_never_rewrites_inputs(self):
+        """The reviewer only reports; enrichment/outreach dicts are untouched."""
+        item = self._item()
+        original_enrichment = copy.deepcopy(item["enrichment"])
+        original_outreach = item["outreach"]
+        parsed = [{
+            "lead_id": "L001", "status": "review", "confidence": 0.8,
+            "issues": ["objection not grounded"],
+            "recommended_action": "Review.",
+        }]
+        with mock.patch.object(pipeline, "_ask_for_json_array_with_retry", return_value=parsed):
+            pipeline.review_leads([item])
+
+        self.assertEqual(item["enrichment"], original_enrichment)
+        self.assertEqual(item["outreach"], original_outreach)
 
 
 if __name__ == "__main__":

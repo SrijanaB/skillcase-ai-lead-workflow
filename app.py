@@ -33,6 +33,7 @@ _CURRENT_RESULT: dict = {
     "enrichments": {},
     "outreach": {},
     "qc": {},
+    "ai_review": {},
 }
 
 
@@ -45,6 +46,7 @@ def _store_pipeline_result(result: dict) -> None:
     _CURRENT_RESULT["enrichments"] = result.get("enrichments") or {}
     _CURRENT_RESULT["outreach"] = result.get("outreach") or {}
     _CURRENT_RESULT["qc"] = result.get("qc") or {}
+    _CURRENT_RESULT["ai_review"] = result.get("ai_review") or {}
 
 
 def _find_current_lead(lead_id: str) -> dict | None:
@@ -279,7 +281,40 @@ def api_outreach_regenerate():
         if not new_message:
             raise RuntimeError("Outreach generation returned no message for this lead.")
         _CURRENT_RESULT.setdefault("outreach", {})[lead_id] = new_message
-        return jsonify({"lead_id": lead_id, "outreach": new_message})
+
+        # Re-run the existing rule-based QC and the AI review for just this
+        # lead so both stay honest against the new draft. Nothing else about
+        # the lead (classification, enrichment, priority) is reprocessed.
+        classification = _CURRENT_RESULT.get("classifications", {}).get(lead_id) or {}
+        qc_flags = pipeline.rule_based_qc(
+            lead, classification, enrichment, new_message, lead.get("priority")
+        )
+        _CURRENT_RESULT.setdefault("qc", {})[lead_id] = qc_flags
+        try:
+            review = pipeline.review_leads([{
+                "lead": lead,
+                "classification": classification,
+                "enrichment": enrichment,
+                "priority": lead.get("priority") or {},
+                "outreach": new_message,
+                "qc_flags": qc_flags,
+            }]).get(lead_id)
+        except Exception as exc:  # noqa: BLE001 - review is advisory; keep the new draft
+            review = {
+                "lead_id": lead_id,
+                "status": "review",
+                "confidence": 0.0,
+                "issues": ["AI review could not be re-run after regeneration -- verify manually."],
+                "recommended_action": pipeline._safe_api_error_message(exc),
+            }
+        if review:
+            _CURRENT_RESULT.setdefault("ai_review", {})[lead_id] = review
+        return jsonify({
+            "lead_id": lead_id,
+            "outreach": new_message,
+            "qc_flags": qc_flags,
+            "ai_review": review,
+        })
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except KeyError as exc:
@@ -297,7 +332,7 @@ CSV_EXPORT_HEADERS = [
     "Lead", "Name", "Relevant", "Reason", "Confidence", "Urgency", "Intent",
     "Profile", "Need", "Objection", "Objection Severity", "Missing Information",
     "Priority", "Priority Reason", "Next Action", "Outreach", "QC Flags",
-    "Status", "Primary Lead",
+    "AI Review", "Status",
 ]
 
 
@@ -321,7 +356,7 @@ def _validated_export_state() -> dict:
         and all(isinstance(a, dict) for a in state["lead_audit"])
     ):
         raise ValueError("'lead_audit' must be a list of audit records.")
-    for key in ("classifications", "enrichments", "outreach", "qc", "contacted"):
+    for key in ("classifications", "enrichments", "outreach", "qc", "ai_review", "contacted"):
         if key in state and not isinstance(state[key], dict):
             raise ValueError(f"'{key}' must be an object keyed by lead_id.")
     return state
@@ -338,6 +373,7 @@ def _export_rows(state: dict) -> list[list]:
     enrichments = state.get("enrichments") or {}
     outreach = state.get("outreach") or {}
     qc = state.get("qc") or {}
+    ai_review = state.get("ai_review") or {}
     contacted = state.get("contacted") or {}
     audit_by_id = {
         a.get("lead_id"): a for a in (state.get("lead_audit") or []) if isinstance(a, dict)
@@ -350,12 +386,13 @@ def _export_rows(state: dict) -> list[list]:
         enr = enrichments.get(lead_id) or {}
         pr = p.get("priority") or {}
         flags = qc.get(lead_id) or []
+        review = ai_review.get(lead_id) or {}
         audit = audit_by_id.get(lead_id)
         if cls.get("relevant") is False and not (audit and audit.get("requires_human_review")):
             status = "Removed — Not Relevant"
         elif lead_id in contacted:
             status = "Contacted"
-        elif (audit and audit.get("requires_human_review")) or flags:
+        elif (audit and audit.get("requires_human_review")) or flags or review.get("status") == "review":
             status = "Needs Human Review"
         else:
             status = "Active"
@@ -366,6 +403,8 @@ def _export_rows(state: dict) -> list[list]:
             enr.get("objection"), enr.get("objection_severity"), enr.get("missing_info"),
             pr.get("band") or "N/A", pr.get("priority_reason"), enr.get("next_action"),
             outreach.get(lead_id) or "", " | ".join(flags),
+            " | ".join(review.get("issues") or []) or (
+                f"{str(review.get('status') or '').capitalize()}" if review else ""),
             status, "",
         ])
 
