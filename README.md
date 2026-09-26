@@ -1,6 +1,6 @@
 # Skillcase Lead Manifest
 
-Skillcase is an AI-assisted B2C lead intelligence workflow. It turns messy,
+Skillcase AI Lead Manifest is an AI-assisted B2C lead intelligence workflow. It turns messy,
 real-world lead conversations — inconsistent fields, duplicates, half-filled
 forms, rambling chat transcripts — into a structured, prioritized sales
 workspace: every lead cleaned, classified, enriched, scored, and paired with
